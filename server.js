@@ -5,7 +5,6 @@ const path = require('path');
 const app = express();
 app.use(express.json());
 
-// الاتصال بقاعدة بيانات MongoDB باستخدام المتغير البيئي MONGO_URL
 const mongoUrl = process.env.MONGO_URL;
 
 if (!mongoUrl) {
@@ -16,7 +15,6 @@ if (!mongoUrl) {
         .catch(err => console.error('خطأ في الاتصال بقاعدة البيانات:', err));
 }
 
-// تصميم جدول (Schema) لتخزين إحداثيات المناديب والطلبات
 const trackingSchema = new mongoose.Schema({
     orderId: { type: String, required: true, unique: true },
     driverName: { type: String, required: true },
@@ -27,7 +25,6 @@ const trackingSchema = new mongoose.Schema({
 
 const Tracking = mongoose.model('Tracking', trackingSchema);
 
-// نقطة اتصال API لتحديث أو حفظ موقع المندوب في قاعدة البيانات
 app.post('/api/track', async (req, res) => {
     try {
         const { orderId, driverName, latitude, longitude } = req.body;
@@ -44,7 +41,6 @@ app.post('/api/track', async (req, res) => {
     }
 });
 
-// نقطة اتصال API لجلب موقع مندوب بناءً على رقم الطلب
 app.get('/api/track/:orderId', async (req, res) => {
     try {
         const tracking = await Tracking.findOne({ orderId: req.params.orderId });
@@ -62,9 +58,9 @@ app.get('/tracker', (req, res) => {
     res.sendFile(path.join(__dirname, 'delivery_tracker.html'));
 });
 
-// صفحة رئيسية تجريبية
+// تعديل الصفحة الرئيسية لتفتح ملف index.html مباشرة
 app.get('/', (req, res) => {
-    res.send('مرحباً بك في نظام Safira Logistic! نظام التتبع وقاعدة البيانات يعملان بنجاح. اذهب إلى /tracker لعرض خريطة التتبع.');
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 const PORT = process.env.PORT || 8080;
