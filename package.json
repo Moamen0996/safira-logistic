@@ -1,0 +1,12 @@
+{
+  "name": "safira-logistic",
+  "version": "1.0.0",
+  "description": "Safira Logistic Shipping Management Web App",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
