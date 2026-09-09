@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام تتبع المناديب الشامل</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+        body { font-family: 'Cairo', sans-serif; }
+        #map { height: 400px; width: 100%; border-radius: 1rem; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen p-4 md:p-8">
+
+    <div class="max-w-4xl mx-auto">
+        <header class="bg-white shadow-sm rounded-2xl p-6 mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-800">🚚 نظام تتبع المناديب الفوري</h1>
+                <p class="text-sm text-slate-500 mt-1">تابع خط سير المناديب وحركات التوصيل لحظة بلحظة عبر قاعدة البيانات السحابية</p>
+            </div>
+            <div id="status-badge" class="bg-amber-100 text-amber-800 px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+                في انتظار بدء التتبع
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm md:col-span-1 flex flex-col justify-between">
+                <div>
+                    <h2 class="font-bold text-slate-700 mb-4">لوحة تحكم المندوب</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs text-slate-500 mb-1">اسم المندوب</label>
+                            <input type="text" id="driver-name" value="أحمد محمد" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-500 mb-1">رقم الطلب</label>
+                            <input type="text" id="order-id" value="#ORD-9842" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500">
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-6 space-y-2">
+                    <button id="start-btn" onclick="startTracking()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition duration-200 shadow-lg shadow-blue-600/25">
+                        بدء بث الموقع 📍
+                    </button>
+                    <button id="stop-btn" onclick="stopTracking()" disabled class="w-full bg-slate-200 text-slate-400 font-semibold py-3 rounded-xl transition duration-200 cursor-not-allowed">
+                        إيقاف البث ⏹️
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-sm md:col-span-2">
+                <h2 class="font-bold text-slate-700 mb-4">الخريطة الحية للمندوب</h2>
+                <div id="map"></div>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl shadow-sm">
+            <h2 class="font-bold text-slate-700 mb-3">سجل الحركة والنشاط</h2>
+            <div id="logs-container" class="bg-slate-50 rounded-xl p-4 h-32 overflow-y-auto text-xs text-slate-600 space-y-2 font-mono">
+                <div>[النظام] جاهز للبدء، يرجى الضغط على بدء بث الموقع.</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let map;
+        let marker;
+        let watchId = null;
+
+        window.onload = function() {
+            map = L.map('map').setView([30.0444, 31.2357], 14);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+        };
+
+        function logMessage(msg) {
+            const container = document.getElementById('logs-container');
+            const time = new Date().toLocaleTimeString('ar-EG');
+            container.innerHTML += `<div>[${time}] ${msg}</div>`;
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function startTracking() {
+            const driverName = document.getElementById('driver-name').value;
+            const orderId = document.getElementById('order-id').value;
+
+            if (!navigator.geolocation) {
+                logMessage('خطأ: المتصفح لا يدعم خاصية تحديد الموقع الجغرافي.');
+                return;
+            }
+
+            document.getElementById('start-btn').disabled = true;
+            document.getElementById('start-btn').className = "w-full bg-slate-200 text-slate-400 font-semibold py-3 rounded-xl cursor-not-allowed";
+            
+            document.getElementById('stop-btn').disabled = false;
+            document.getElementById('stop-btn').className = "w-full bg-rose-600 hover:bg-rose-700 text-white font-semibold py-3 rounded-xl transition duration-200 shadow-lg shadow-rose-600/25";
+
+            const badge = document.getElementById('status-badge');
+            badge.className = "bg-emerald-100 text-emerald-800 px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2";
+            badge.innerHTML = '<span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span> البث مباشر الآن';
+
+            logMessage(`بدء تتبع وبث موقع المندوب: ${driverName}`);
+
+            watchId = navigator.geolocation.watchPosition(
+                async (position) => {
+                    const latitude = position.coords.latitude;
+                    const longitude = position.coords.longitude;
+
+                    logMessage(`تحديث الموقع محلياً: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+
+                    if (marker) {
+                        marker.setLatLng([latitude, longitude]);
+                    } else {
+                        marker = L.marker([latitude, longitude]).addTo(map).bindPopup(`المندوب: ${driverName}`).openPopup();
+                    }
+                    map.setView([latitude, longitude], 16);
+
+                    // إرسال الإحداثيات المحدثة إلى قاعدة البيانات السحابية
+                    try {
+                        const response = await fetch('/api/track', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ orderId, driverName, latitude, longitude })
+                        });
+                        const result = await response.json();
+                        if (result.success) {
+                            logMessage('تم حفظ وإرسال الموقع إلى قاعدة البيانات بنجاح.');
+                        }
+                    } catch (err) {
+                        logMessage('خطأ في الاتصال بالسيرفر لحفظ الموقع.');
+                    }
+                },
+                (error) => {
+                    logMessage(`خطأ في تحديد الموقع: ${error.message}`);
+                },
+                {
+                    enableHighAccuracy: true,
+                    maximumAge: 0,
+                    timeout: 10000
+                }
+            );
+        }
+
+        function stopTracking() {
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+
+            document.getElementById('start-btn').disabled = false;
+            document.getElementById('start-btn').className = "w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition duration-200 shadow-lg shadow-blue-600/25";
+            
+            document.getElementById('stop-btn').disabled = true;
+            document.getElementById('stop-btn').className = "w-full bg-slate-200 text-slate-400 font-semibold py-3 rounded-xl cursor-not-allowed";
+
+            const badge = document.getElementById('status-badge');
+            badge.className = "bg-amber-100 text-amber-800 px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2";
+            badge.innerHTML = '<span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span> تم إيقاف البث';
+
+            logMessage('تم إيقاف تتبع الموقع.');
+        }
+    </script>
+</body>
+</html>
