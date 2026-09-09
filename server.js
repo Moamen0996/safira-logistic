@@ -1,17 +1,29 @@
 const express = require('express');
-const path = require('path');
+const mongoose = require('mongoose');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// تقديم الملفات الثابتة من المجلد الحالي
-app.use(express.static(path.join(__dirname)));
+// قراءة رابط قاعدة البيانات من المتغيرات البيئية في Railway
+// (ملاحظة: يدعم الاسم الصحيح MONGO_URL أو الاسم الذي أضفته MANGO_URL)
+const MONGO_URI = process.env.MONGO_URL || process.env.MANGO_URL;
 
-// توجيه كافة الطلبات إلى ملف index.html الرئيسي
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+app.use(express.json());
+
+// الاتصال بقاعدة بيانات MongoDB Atlas السحابية
+if (MONGO_URI) {
+    mongoose.connect(MONGO_URI)
+        .then(() => console.log('تم الاتصال بقاعدة بيانات MongoDB بنجاح!'))
+        .catch(err => console.error('خطأ في الاتصال بقاعدة البيانات:', err));
+} else {
+    console.log('تحذير: لم يتم العثور على رابط الاتصال بقاعدة البيانات.');
+}
+
+// مسار رئيسي للاختبار
+app.get('/', (req, res) => {
+    res.send('مرحباً بك في نظام Safira Logistic - السيرفر يعمل ومتصل بقاعدة البيانات!');
 });
 
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+    console.log(`السيرفر يعمل الآن على المنفذ ${PORT}`);
 });
