@@ -120,7 +120,6 @@
                     }
                     map.setView([latitude, longitude], 16);
 
-                    // إرسال الإحداثيات المحدثة إلى قاعدة البيانات السحابية
                     try {
                         const response = await fetch('/api/track', {
                             method: 'POST',
