@@ -5,11 +5,11 @@ const path = require('path');
 const app = express();
 app.use(express.json());
 
-// الاتصال بقاعدة بيانات MongoDB باستخدام المتغير البيئي الموجود في Railway (MONGO_URL أو MANGO_URL)
-const mongoUrl = process.env.MONGO_URL || process.env.MANGO_URL;
+// الاتصال بقاعدة بيانات MongoDB باستخدام المتغير البيئي MONGO_URL
+const mongoUrl = process.env.MONGO_URL;
 
 if (!mongoUrl) {
-    console.error("خطأ: رابط قاعدة البيانات غير موجود في المتغيرات (MONGO_URL)");
+    console.error("خطأ: رابط قاعدة البيانات غير موجود في المتغيرات البيئية (MONGO_URL)");
 } else {
     mongoose.connect(mongoUrl)
         .then(() => console.log('تم الاتصال بقاعدة بيانات MongoDB بنجاح!'))
@@ -67,7 +67,7 @@ app.get('/', (req, res) => {
     res.send('مرحباً بك في نظام Safira Logistic! نظام التتبع وقاعدة البيانات يعملان بنجاح. اذهب إلى /tracker لعرض خريطة التتبع.');
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
     console.log(`السيرفر يعمل الآن على المنفذ ${PORT}`);
 });
