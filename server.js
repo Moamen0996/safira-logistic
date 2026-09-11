@@ -5,15 +5,15 @@ const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// MongoDB Connection - Using direct URI with account moamenbeliever_db_user or fallback to env
-const MONGODB_URI = process.env.MONGO_URL || process.env.MONGODB_URI || 'mongodb+srv://moamenbeliever_db_user:YOUR_PASSWORD@cluster.mongodb.net/safira_logistic?retryWrites=true&w=majority';
+// MongoDB Connection - استخدام الرابط المباشر بالحساب المحدد
+const MONGODB_URI = 'mongodb+srv://moamenbeliever_db_user:YOUR_PASSWORD@cluster.mongodb.net/safira_logistic?retryWrites=true&w=majority';
 
 console.log('🔗 جاري الاتصال بقاعدة البيانات باستخدام الحساب: moamenbeliever_db_user...');
 
@@ -23,6 +23,8 @@ mongoose.connect(MONGODB_URI, {
 })
 .then(() => console.log('✅ MongoDB Connected Successfully'))
 .catch(err => console.error('❌ MongoDB Connection Error:', err));
+
+// ==================== SCHEMAS ===================
 
 // Order Schema
 const orderSchema = new mongoose.Schema({
@@ -108,6 +110,8 @@ const Delegate = mongoose.model('Delegate', delegateSchema);
 const Merchant = mongoose.model('Merchant', merchantSchema);
 const Tracking = mongoose.model('Tracking', trackingSchema);
 const PayoutRequest = mongoose.model('PayoutRequest', payoutSchema);
+
+// ==================== API ENDPOINTS ===================
 
 // -------- ORDERS --------
 app.post('/api/orders', async (req, res) => {
@@ -267,7 +271,6 @@ app.post('/api/track', async (req, res) => {
     try {
         const { orderId, driverName, delegateId, latitude, longitude, accuracy } = req.body;
         
-        // Save tracking data
         const tracking = new Tracking({
             delegateId,
             delegateName: driverName,
@@ -278,7 +281,6 @@ app.post('/api/track', async (req, res) => {
         });
         await tracking.save();
 
-        // Update delegate's last location
         await Delegate.findOneAndUpdate(
             { delegateId },
             {
