@@ -12,23 +12,17 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// MongoDB Connection - Supporting multiple environment variable names
-const MONGODB_URI = process.env.MONGO_URL || process.env.MONGODB_URI || process.env.MONGO_URI;
+// MongoDB Connection - Using direct URI with account moamenbeliever_db_user or fallback to env
+const MONGODB_URI = process.env.MONGO_URL || process.env.MONGODB_URI || 'mongodb+srv://moamenbeliever_db_user:YOUR_PASSWORD@cluster.mongodb.net/safira_logistic?retryWrites=true&w=majority';
 
-if (!MONGODB_URI) {
-    console.error('❌ خطأ فادح: رابط قاعدة البيانات غير موجود في المتغيرات البيئية (MONGO_URL أو MONGODB_URI)!');
-} else {
-    console.log('🔗 جاري الاتصال بقاعدة البيانات...');
-}
+console.log('🔗 جاري الاتصال بقاعدة البيانات باستخدام الحساب: moamenbeliever_db_user...');
 
-mongoose.connect(MONGODB_URI || 'mongodb://localhost:27017/safira_logistic', {
+mongoose.connect(MONGODB_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true
 })
 .then(() => console.log('✅ MongoDB Connected Successfully'))
 .catch(err => console.error('❌ MongoDB Connection Error:', err));
-
-// ==================== SCHEMAS ====================
 
 // Order Schema
 const orderSchema = new mongoose.Schema({
@@ -114,8 +108,6 @@ const Delegate = mongoose.model('Delegate', delegateSchema);
 const Merchant = mongoose.model('Merchant', merchantSchema);
 const Tracking = mongoose.model('Tracking', trackingSchema);
 const PayoutRequest = mongoose.model('PayoutRequest', payoutSchema);
-
-// ==================== API ENDPOINTS ====================
 
 // -------- ORDERS --------
 app.post('/api/orders', async (req, res) => {
