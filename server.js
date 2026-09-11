@@ -12,8 +12,9 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// MongoDB Connection - استخدام الرابط المباشر بالحساب المحدد
-const MONGODB_URI = 'mongodb+srv://moamenbeliever_db_user:YOUR_PASSWORD@cluster.mongodb.net/safira_logistic?retryWrites=true&w=majority';
+// ⚠️ ضع هنا رابط الاتصال الحقيقي الذي نسخته من زر Connect في MongoDB Atlas بالكامل
+// (تأكد من استبدال <password> بكلمة مرور حسابك moamenbeliever_db_user الفعليّة)
+const MONGODB_URI = 'mongodb+srv://moamenbeliever_db_user:YOUR_ACTUAL_PASSWORD@cluster0.xxxxx.mongodb.net/safira_logistic?retryWrites=true&w=majority';
 
 console.log('🔗 جاري الاتصال بقاعدة البيانات باستخدام الحساب: moamenbeliever_db_user...');
 
@@ -23,8 +24,6 @@ mongoose.connect(MONGODB_URI, {
 })
 .then(() => console.log('✅ MongoDB Connected Successfully'))
 .catch(err => console.error('❌ MongoDB Connection Error:', err));
-
-// ==================== SCHEMAS ===================
 
 // Order Schema
 const orderSchema = new mongoose.Schema({
@@ -110,8 +109,6 @@ const Delegate = mongoose.model('Delegate', delegateSchema);
 const Merchant = mongoose.model('Merchant', merchantSchema);
 const Tracking = mongoose.model('Tracking', trackingSchema);
 const PayoutRequest = mongoose.model('PayoutRequest', payoutSchema);
-
-// ==================== API ENDPOINTS ===================
 
 // -------- ORDERS --------
 app.post('/api/orders', async (req, res) => {
