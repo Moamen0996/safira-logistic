@@ -13,8 +13,8 @@ app.use(express.json());
 app.use(express.static(__dirname));
 
 // ⚠️ ضع هنا رابط الاتصال الحقيقي الذي نسخته من زر Connect في MongoDB Atlas بالكامل
-// (تأكد من استبدال <password> بكلمة مرور حسابك moamenbeliever_db_user الفعليّة)
-const MONGODB_URI = 'mongodb+srv://moamenbeliever_db_user:YOUR_ACTUAL_PASSWORD@cluster0.xxxxx.mongodb.net/safira_logistic?retryWrites=true&w=majority';
+// تأكد من استبدال كلمة المرور الحقيقية مكان <password>
+const MONGODB_URI = 'mongodb+srv://moamenbeliever_db_user:<moamenbeliever_db_user>@cluster0.yucaqm0.mongodb.net/?appName=Cluster0.xxxxx.mongodb.net/safira_logistic?retryWrites=true&w=majority';
 
 console.log('🔗 جاري الاتصال بقاعدة البيانات باستخدام الحساب: moamenbeliever_db_user...');
 
@@ -103,7 +103,6 @@ const payoutSchema = new mongoose.Schema({
     processedAt: Date
 });
 
-// Models
 const Order = mongoose.model('Order', orderSchema);
 const Delegate = mongoose.model('Delegate', delegateSchema);
 const Merchant = mongoose.model('Merchant', merchantSchema);
