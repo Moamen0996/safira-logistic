@@ -12,9 +12,8 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// ⚠️ ضع هنا رابط الاتصال الحقيقي الذي نسخته من زر Connect في MongoDB Atlas بالكامل
-// تأكد من استبدال كلمة المرور الحقيقية مكان <password>
-const MONGODB_URI = 'mongodb+srv://moamenbeliever_db_user:<moamenbeliever_db_user>@cluster0.yucaqm0.mongodb.net/?appName=Cluster0.xxxxx.mongodb.net/safira_logistic?retryWrites=true&w=majority';
+// ⚠️ الرابط الحقيقي المباشر لقاعدة البيانات مع وضع كلمة المرور الصحيحة مكان YOUR_REAL_PASSWORD
+const MONGODB_URI = 'mongodb+srv://moamenbeliever_db_user:MOAMENBELIEVER172096@cluster0.xxxxx.mongodb.net/safira_logistic?retryWrites=true&w=majority';
 
 console.log('🔗 جاري الاتصال بقاعدة البيانات باستخدام الحساب: moamenbeliever_db_user...');
 
