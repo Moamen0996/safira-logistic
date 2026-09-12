@@ -12,7 +12,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(__dirname));
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://moamenbeliever_db_user:MOAMENBELIEVER172096@cluster0.mongodb.net/safira_logistic?retryWrites=true&w=majority';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://moamenbeliever_db_user:<moamenbekiever172096>@cluster0.yucaqm0.mongodb.net/?appName=Cluster0 ;
 
 console.log('🔗 جاري الاتصال بقاعدة البيانات باستخدام الحساب: moamenbeliever_db_user...');
 
