@@ -12,17 +12,14 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// رابط الاتصال بقاعدة البيانات (يتم قراءته من متغيرات البيئة أو وضعه بشكل مباشر)
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://moamenbeliever_db_user:MOAMENBELIEVER172096@cluster0.mongodb.net/safira_logistic?retryWrites=true&w=majority';
 
 console.log('🔗 جاري الاتصال بقاعدة البيانات باستخدام الحساب: moamenbeliever_db_user...');
 
-// الاتصال بـ MongoDB بدون خيارات قديمة
 mongoose.connect(MONGODB_URI)
 .then(() => console.log('✅ MongoDB Connected Successfully'))
 .catch(err => console.error('❌ MongoDB Connection Error:', err));
 
-// Order Schema
 const orderSchema = new mongoose.Schema({
     orderId: { type: String, unique: true, required: true },
     waybill: String,
@@ -43,7 +40,6 @@ const orderSchema = new mongoose.Schema({
     updatedAt: { type: Date, default: Date.now }
 });
 
-// Delegate Schema
 const delegateSchema = new mongoose.Schema({
     delegateId: { type: String, unique: true, required: true },
     code: { type: String, unique: true, required: true },
@@ -63,7 +59,6 @@ const delegateSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 
-// Merchant Schema
 const merchantSchema = new mongoose.Schema({
     merchantId: { type: String, unique: true, required: true },
     code: { type: String, unique: true, required: true },
@@ -75,7 +70,6 @@ const merchantSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 
-// Live Tracking Schema
 const trackingSchema = new mongoose.Schema({
     delegateId: String,
     delegateName: String,
@@ -86,7 +80,6 @@ const trackingSchema = new mongoose.Schema({
     timestamp: { type: Date, default: Date.now }
 });
 
-// Payout Request Schema
 const payoutSchema = new mongoose.Schema({
     requestId: { type: String, unique: true },
     userId: String,
@@ -106,7 +99,6 @@ const Merchant = mongoose.model('Merchant', merchantSchema);
 const Tracking = mongoose.model('Tracking', trackingSchema);
 const PayoutRequest = mongoose.model('PayoutRequest', payoutSchema);
 
-// -------- ORDERS --------
 app.post('/api/orders', async (req, res) => {
     try {
         const order = new Order(req.body);
@@ -157,7 +149,6 @@ app.delete('/api/orders/:orderId', async (req, res) => {
     }
 });
 
-// -------- DELEGATES --------
 app.post('/api/delegates', async (req, res) => {
     try {
         const delegate = new Delegate(req.body);
@@ -208,7 +199,6 @@ app.delete('/api/delegates/:delegateId', async (req, res) => {
     }
 });
 
-// -------- MERCHANTS --------
 app.post('/api/merchants', async (req, res) => {
     try {
         const merchant = new Merchant(req.body);
@@ -259,7 +249,6 @@ app.delete('/api/merchants/:merchantId', async (req, res) => {
     }
 });
 
-// -------- LIVE TRACKING --------
 app.post('/api/track', async (req, res) => {
     try {
         const { orderId, driverName, delegateId, latitude, longitude, accuracy } = req.body;
@@ -299,7 +288,6 @@ app.get('/api/track/:delegateId', async (req, res) => {
     }
 });
 
-// -------- PAYOUT REQUESTS --------
 app.post('/api/payout-requests', async (req, res) => {
     try {
         const requestId = 'PAY-' + Date.now();
@@ -342,7 +330,6 @@ app.delete('/api/payout-requests/:requestId', async (req, res) => {
     }
 });
 
-// -------- STATISTICS --------
 app.get('/api/stats/orders', async (req, res) => {
     try {
         const total = await Order.countDocuments();
@@ -374,37 +361,4 @@ app.get('/api/stats/merchants', async (req, res) => {
     }
 });
 
-// -------- SERVE HTML FILES --------
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-app.get('/tracker', (req, res) => {
-    res.sendFile(path.join(__dirname, 'delivery_tracker.html'));
-});
-
-// Health Check
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'Server is running ✅', timestamp: new Date().toISOString() });
-});
-
-// 404 Handler
-app.use((req, res) => {
-    res.status(404).json({ success: false, error: 'Not Found' });
-});
-
-// Error Handling Middleware
-app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({ success: false, error: 'Internal Server Error' });
-});
-
-// Start Server
-const server = app.listen(PORT, () => {
-    console.log(`🚀 Safira Logistics Server running on http://localhost:${PORT}`);
-    console.log(`📊 Dashboard: http://localhost:${PORT}`);
-    console.log(`🗺️  Tracker: http://localhost:${PORT}/tracker`);
-    console.log(`💚 Health Check: http://localhost:${PORT}/api/health`);
-});
-
-module.exports = app;
