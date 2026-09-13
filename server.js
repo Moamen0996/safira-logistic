@@ -383,7 +383,8 @@ app.use((err, req, res, next) => {
 });
 
 const server = app.listen(PORT, () => {
-    console.log(`\n🚀 Safira Logistics Server running on http://localhost:${PORT}`);
+    console.log(`
+🚀 Safira Logistics Server running on http://localhost:${PORT}`);
 });
 
 module.export = app;
