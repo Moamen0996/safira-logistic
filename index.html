@@ -1321,25 +1321,20 @@
                             <p>شكراً لتعاملكم مع سفيرا لوجستيك | خدمة العملاء: 01000000000</p>
                         </div>
                     </div>
-                    <script>
-                        window.onload = function() { window.print(); };
-                    </script>
-                </body>
-                </html>
-            `);
-            printWindow.document.close();
-        };
-
-        window.onload = function() {
-            setTimeout(() => {
-                const badge = document.getElementById('syncStatusBadge');
-                if(badge) {
-                    badge.classList.remove('hidden');
-                    badge.classList.add('flex');
-                }
-            }, 1000);
-            window.renderPortal();
-        };
-    </script>
+                   </div>
+<script>
+window.onload = function() {
+setTimeout(() => {
+const badge = document.getElementById('syncStatusBadge');
+if(badge) {
+badge.classList.remove('hidden');
+badge.classList.add('flex');
+}
+}, 1000);
+if (typeof window.renderPortal === 'function') {
+window.renderPortal();
+}
+}
+</script>
 </body>
 </html>
