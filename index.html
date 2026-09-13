@@ -4,24 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>سفيرا لوجستيك - النظام المتكامل لإدارة الشحنات</title>
-    
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
-                        gold: {
-                            300: '#fde047',
-                            400: '#facc15',
-                            500: '#eab308',
-                            600: '#ca8a04'
-                        },
-                        darkbg: {
-                            800: '#1e293b',
-                            900: '#0f172a',
-                            950: '#020617'
-                        }
+                        gold: { 300: '#fde047', 400: '#facc15', 500: '#eab308', 600: '#ca8a04' },
+                        darkbg: { 800: '#1e293b', 900: '#0f172a', 950: '#020617' }
                     }
                 }
             }
@@ -43,766 +33,6 @@
         ::-webkit-scrollbar-track { background: #0f172a; }
         ::-webkit-scrollbar-thumb { background: #eab308; border-radius: 4px; }
     </style>
-    
-    <script>
-        const CLOUD_CONFIG = {
-            mongoUri: "mongodb+srv://safira_user:safira172096@cluster.railway.mongodb.net/safira_db?retryWrites=true&w=majority",
-            backendApiUrl: "https://safira-logistics-backend.railway.app/api"
-        };
-
-        let dbState = {
-            currentUser: null,
-            role: null,
-            orders: [
-                { id: 'ORD-1001', policyNo: 'POL-5541', merchantId: 'MER-201', customerName: 'أحمد محمود', customerPhone: '01012345678', governorate: 'القاهرة', address: '15 شارع التحرير', paymentType: 'نقدي (COD)', amount: 650, shippingCost: 60, delegateId: 'DEL-101', status: 'قيد التوصيل', delegateLock: false },
-                { id: 'ORD-1002', policyNo: 'POL-5542', merchantId: 'MER-202', customerName: 'محمد علي', customerPhone: '01098765432', governorate: 'الجيزة', address: '22 شارع الهرم', paymentType: 'نقدي (COD)', amount: 1200, shippingCost: 75, delegateId: 'DEL-102', status: 'تم التسليم', delegateLock: true },
-                { id: 'ORD-1003', policyNo: 'POL-5543', merchantId: 'MER-201', customerName: 'سارة إبراهيم', customerPhone: '01055544433', governorate: 'الإسكندرية', address: 'كورنيش الإسكندرية', paymentType: 'مدفوع مسبقاً (إلكتروني)', amount: 450, shippingCost: 90, delegateId: '', status: 'قيد المراجعة', delegateLock: false }
-            ],
-            delegates: [
-                { id: 'DEL-101', name: 'كابتن حسن مرعي', phone: '01011122233', area: 'القاهرة وسط', lat: 30.0444, lng: 31.2357 },
-                { id: 'DEL-102', name: 'كابتن إسلام الشريف', phone: '01044455566', area: 'الجيزة والهرم', lat: 29.9792, lng: 31.1342 }
-            ],
-            merchants: [
-                { id: 'MER-201', name: 'متجر الأزياء الراقية', phone: '01022233344', gov: 'القاهرة' },
-                { id: 'MER-202', name: 'إلكترونيات المستقبل', phone: '01088899900', gov: 'الجيزة' }
-            ],
-            payoutRequests: []
-        };
-
-        let mapInstance = null;
-        let profitChartInstance = null;
-        let customAlertCallback = null;
-
-        window.showCustomAlert = function(message, title = 'تنبيه النظام', showCancel = false, callback = null) {
-            document.getElementById('customAlertTitle').innerText = title;
-            document.getElementById('customAlertMessage').innerText = message;
-            customAlertCallback = callback;
-            
-            const cancelBtn = document.getElementById('customAlertCancelBtn');
-            if (showCancel) {
-                cancelBtn.classList.remove('hidden');
-            } else {
-                cancelBtn.classList.add('hidden');
-            }
-
-            const modal = document.getElementById('customAlertModal');
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-        };
-
-        window.closeCustomAlert = function(result) {
-            const modal = document.getElementById('customAlertModal');
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-            if (customAlertCallback) {
-                const cb = customAlertCallback;
-                customAlertCallback = null;
-                cb(result);
-            }
-        };
-
-        window.renderPortal = function() {
-            window.navigateToPortal();
-        };
-
-        window.navigateToPortal = function() {
-            dbState.currentUser = null;
-            dbState.role = null;
-            const userBadge = document.getElementById('currentUserBadge');
-            const btnLogout = document.getElementById('btnLogoutNav');
-            if(userBadge) { userBadge.classList.add('hidden'); userBadge.classList.remove('flex'); }
-            if(btnLogout) { btnLogout.classList.add('hidden'); }
-            
-            document.getElementById('viewAdmin').classList.add('hidden');
-            document.getElementById('viewDelegate').classList.add('hidden');
-            document.getElementById('viewMerchant').classList.add('hidden');
-            document.getElementById('viewPortal').classList.remove('hidden');
-        };
-
-        window.openAdminPasswordModal = function() {
-            const pwdInput = document.getElementById('securePasswordInput');
-            if(pwdInput) pwdInput.value = '';
-            const modal = document.getElementById('passwordModal');
-            if(modal) {
-                modal.classList.remove('hidden');
-                modal.classList.add('flex');
-                if(pwdInput) pwdInput.focus();
-            }
-        };
-
-        window.closePasswordModal = function() {
-            const modal = document.getElementById('passwordModal');
-            if(modal) {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-            }
-        };
-
-        window.verifyAdminPassword = function() {
-            const val = document.getElementById('securePasswordInput').value;
-            if (val === 'safira172096') {
-                window.closePasswordModal();
-                loginAsAdmin();
-            } else {
-                window.showCustomAlert("كلمة المرور غير صحيحة! كلمة المرور الافتراضية للإدارة هي: safira172096", "خطأ في التحقق");
-            }
-        };
-
-        function loginAsAdmin() {
-            dbState.currentUser = 'الإدارة المركزية';
-            dbState.role = 'admin';
-            updateUserBadge('الإدارة المركزية', 'مدير النظام العام');
-            
-            document.getElementById('viewPortal').classList.add('hidden');
-            document.getElementById('viewAdmin').classList.remove('hidden');
-            document.getElementById('btnLogoutNav').classList.remove('hidden');
-            
-            window.switchAdminTab('orders');
-            refreshAdminData();
-        }
-
-        window.loginAsDelegate = function() {
-            const inputElem = document.getElementById('loginDelegateCode');
-            if(!inputElem) return;
-            const code = inputElem.value.trim();
-            const del = dbState.delegates.find(d => d.id === code || d.name.includes(code));
-            if (!del) {
-                window.showCustomAlert("كود المندوب غير صحيح! يرجى التأكد من الكود (مثال: DEL-101)", "خطأ في تسجيل الدخول");
-                return;
-            }
-            dbState.currentUser = del;
-            dbState.role = 'delegate';
-            updateUserBadge(del.name, `مندوب توصيل (${del.id})`);
-
-            document.getElementById('viewPortal').classList.add('hidden');
-            document.getElementById('viewDelegate').classList.remove('hidden');
-            document.getElementById('btnLogoutNav').classList.remove('hidden');
-            
-            refreshDelegateDashboard();
-        };
-
-        window.loginAsMerchant = function() {
-            const inputElem = document.getElementById('loginMerchantCode');
-            if(!inputElem) return;
-            const code = inputElem.value.trim();
-            const merch = dbState.merchants.find(m => m.id === code || m.name.includes(code));
-            if (!merch) {
-                window.showCustomAlert("كود التاجر غير صحيح! يرجى التأكد من الكود (مثال: MER-201)", "خطأ في تسجيل الدخول");
-                return;
-            }
-            dbState.currentUser = merch;
-            dbState.role = 'merchant';
-            updateUserBadge(merch.name, `تاجر معتمد (${merch.id})`);
-
-            document.getElementById('viewPortal').classList.add('hidden');
-            document.getElementById('viewMerchant').classList.remove('hidden');
-            document.getElementById('btnLogoutNav').classList.remove('hidden');
-            
-            refreshMerchantDashboard();
-        };
-
-        function updateUserBadge(name, role) {
-            document.getElementById('currentUserName').innerText = name;
-            document.getElementById('currentUserRoleTag').innerText = role;
-            const badge = document.getElementById('currentUserBadge');
-            badge.classList.remove('hidden');
-            badge.classList.add('flex');
-        }
-
-        window.switchAdminTab = function(tab) {
-            ['Orders', 'Delegates', 'Merchants', 'Accounts', 'Analytics'].forEach(t => {
-                const sec = document.getElementById(`adminTab${t}Section`);
-                const btn = document.getElementById(`adminTabBtn${t}`);
-                if (sec) sec.classList.add('hidden');
-                if (btn) {
-                    btn.className = "px-4 py-2.5 rounded-xl font-bold text-sm bg-gray-900 text-gray-400 border border-gray-800 flex items-center gap-2 whitespace-nowrap hover:text-white cursor-pointer";
-                }
-            });
-
-            const activeSec = document.getElementById(`adminTab${tab.charAt(0).toUpperCase() + tab.slice(1)}Section`);
-            if(activeSec) activeSec.classList.remove('hidden');
-            
-            const activeBtn = document.getElementById(`adminTabBtn${tab.charAt(0).toUpperCase() + tab.slice(1)}`);
-            if (activeBtn) {
-                activeBtn.className = "px-4 py-2.5 rounded-xl font-bold text-sm bg-gold-500/20 text-gold-400 border border-gold-500/40 flex items-center gap-2 whitespace-nowrap cursor-pointer";
-            }
-
-            if (tab === 'delegates') setTimeout(initLiveMap, 300);
-            if (tab === 'analytics') setTimeout(initAnalyticsChart, 300);
-        };
-
-        function refreshAdminData() {
-            const total = dbState.orders.length;
-            const pending = dbState.orders.filter(o => o.status === 'قيد التوصيل' || o.status === 'قيد المراجعة').length;
-            const delivered = dbState.orders.filter(o => o.status === 'تم التسليم').length;
-            const returned = dbState.orders.filter(o => o.status === 'مرتجع' || o.status === 'تم الرفض').length;
-            const totalAmount = dbState.orders.reduce((sum, o) => sum + (o.status === 'تم التسليم' ? o.amount : 0), 0);
-            const netProfit = dbState.orders.reduce((sum, o) => sum + (o.status === 'تم التسليم' ? o.shippingCost : 0), 0);
-
-            document.getElementById('statTotalOrders').innerText = total;
-            document.getElementById('statPendingOrders').innerText = pending;
-            document.getElementById('statDeliveredOrders').innerText = delivered;
-            document.getElementById('statReturnedOrders').innerText = returned;
-            document.getElementById('statTotalAmount').innerText = totalAmount + ' ج.م';
-            document.getElementById('statNetProfit').innerText = netProfit + ' ج.م';
-
-            window.renderAdminOrdersTable();
-            renderAdminDelegatesTable();
-            renderAdminMerchantsTable();
-            renderAdminPayoutsTable();
-        }
-
-        window.renderAdminOrdersTable = function() {
-            const tbody = document.getElementById('adminOrdersTableBody');
-            if(!tbody) return;
-            tbody.innerHTML = '';
-            const searchInput = document.getElementById('adminSearchInput');
-            const search = searchInput ? searchInput.value.toLowerCase() : '';
-            const filterStatusElem = document.getElementById('adminFilterStatus');
-            const filterStatus = filterStatusElem ? filterStatusElem.value : '';
-
-            const filtered = dbState.orders.filter(o => {
-                const matchSearch = o.id.toLowerCase().includes(search) || o.policyNo.toLowerCase().includes(search) || o.customerName.toLowerCase().includes(search) || o.customerPhone.includes(search);
-                const matchStatus = filterStatus ? o.status === filterStatus : true;
-                return matchSearch && matchStatus;
-            });
-
-            if (filtered.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">لا توجد شحنات مطابقة للبحث</td></tr>`;
-                return;
-            }
-
-            filtered.forEach(o => {
-                const merch = dbState.merchants.find(m => m.id === o.merchantId);
-                const del = dbState.delegates.find(d => d.id === o.delegateId);
-                
-                let badgeClass = "bg-amber-500/20 text-amber-300 border-amber-500/30";
-                if (o.status === 'تم التسليم') badgeClass = "bg-emerald-500/20 text-emerald-300 border-emerald-500/30";
-                if (o.status === 'مرتجع' || o.status === 'تم الرفض') badgeClass = "bg-rose-500/20 text-rose-300 border-rose-500/30";
-
-                tbody.innerHTML += `
-                    <tr class="hover:bg-darkbg-900/50 transition">
-                        <td class="p-3 font-bold text-gold-400">${o.id}</td>
-                        <td class="p-3">${o.policyNo}</td>
-                        <td class="p-3">${merch ? merch.name : o.merchantId}</td>
-                        <td class="p-3"><strong>${o.customerName}</strong><br><span class="text-gray-400">${o.customerPhone}</span></td>
-                        <td class="p-3">${o.governorate} - ${o.address}</td>
-                        <td class="p-3"><span class="text-white font-bold">${o.amount} ج.م</span><br><span class="text-[10px] text-gray-400">شحن: ${o.shippingCost} ج.م</span></td>
-                        <td class="p-3">${del ? del.name : '<span class="text-gray-500">غير مسند</span>'}</td>
-                        <td class="p-3"><span class="px-2.5 py-1 rounded-full border text-[10px] font-bold ${badgeClass}">${o.status}</span></td>
-                        <td class="p-3 text-center space-x-1 space-x-reverse">
-                            <button type="button" onclick="window.printWaybill('${o.id}')" title="طباعة بوليصة الشحن" class="px-2 py-1 rounded bg-amber-600/30 border border-amber-600/50 text-amber-300 hover:bg-amber-600 hover:text-white transition cursor-pointer">
-                                <i class="fa-solid fa-print"></i>
-                            </button>
-                            <a href="https://wa.me/2${o.customerPhone}?text=${encodeURIComponent('عزيزي العميل ' + o.customerName + '، شحنتك رقم ' + o.id + ' في طريقها إليك من سفيرا لوجستيك.')}" target="_blank" class="px-2 py-1 rounded bg-emerald-600/30 border border-emerald-600/50 text-emerald-300 hover:bg-emerald-600 hover:text-white transition inline-block">
-                                <i class="fa-brands fa-whatsapp"></i>
-                            </a>
-                            <button type="button" onclick="window.editOrder('${o.id}')" class="px-2 py-1 rounded bg-blue-600/30 border border-blue-600/50 text-blue-300 hover:bg-blue-600 hover:text-white transition cursor-pointer">
-                                <i class="fa-solid fa-pen"></i>
-                            </button>
-                            <button type="button" onclick="window.deleteOrder('${o.id}')" class="px-2 py-1 rounded bg-rose-600/30 border border-rose-600/50 text-rose-300 hover:bg-rose-600 hover:text-white transition cursor-pointer">
-                                <i class="fa-solid fa-trash"></i>
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            });
-        };
-
-        function renderAdminDelegatesTable() {
-            const tbody = document.getElementById('adminDelegatesTableBody');
-            if(!tbody) return;
-            tbody.innerHTML = '';
-            dbState.delegates.forEach(d => {
-                const assignedCount = dbState.orders.filter(o => o.delegateId === d.id).length;
-                tbody.innerHTML += `
-                    <tr class="hover:bg-darkbg-900/50">
-                        <td class="p-3 font-bold text-gold-400">${d.id}</td>
-                        <td class="p-3">${d.name}</td>
-                        <td class="p-3">${d.phone}</td>
-                        <td class="p-3">${d.area}</td>
-                        <td class="p-3"><span class="bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full">${assignedCount} شحنة</span></td>
-                        <td class="p-3 text-center">
-                            <button type="button" onclick="window.deleteDelegate('${d.id}')" class="px-2.5 py-1 rounded bg-rose-600/30 text-rose-300 hover:bg-rose-600 hover:text-white transition cursor-pointer">حذف</button>
-                        </td>
-                    </tr>
-                `;
-            });
-        }
-
-        function renderAdminMerchantsTable() {
-            const tbody = document.getElementById('adminMerchantsTableBody');
-            if(!tbody) return;
-            tbody.innerHTML = '';
-            dbState.merchants.forEach(m => {
-                const merchOrders = dbState.orders.filter(o => o.merchantId === m.id);
-                const totalDue = merchOrders.reduce((sum, o) => sum + (o.status === 'تم التسليم' ? (o.amount - o.shippingCost) : 0), 0);
-                tbody.innerHTML += `
-                    <tr class="hover:bg-darkbg-900/50">
-                        <td class="p-3 font-bold text-gold-400">${m.id}</td>
-                        <td class="p-3">${m.name}</td>
-                        <td class="p-3">${m.phone}</td>
-                        <td class="p-3">${m.gov}</td>
-                        <td class="p-3">${merchOrders.length} شحنة</td>
-                        <td class="p-3 text-emerald-400 font-bold">${totalDue} ج.م</td>
-                        <td class="p-3 text-center">
-                            <button type="button" onclick="window.deleteMerchant('${m.id}')" class="px-2.5 py-1 rounded bg-rose-600/30 text-rose-300 hover:bg-rose-600 hover:text-white transition cursor-pointer">حذف</button>
-                        </td>
-                    </tr>
-                `;
-            });
-        }
-
-        function renderAdminPayoutsTable() {
-            const tbody = document.getElementById('adminPayoutRequestsTableBody');
-            if(!tbody) return;
-            tbody.innerHTML = '';
-            if (dbState.payoutRequests.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-gray-400">لا توجد طلبات صرف مستحقات معلقة حالياً</td></tr>`;
-                return;
-            }
-            dbState.payoutRequests.forEach((p, idx) => {
-                tbody.innerHTML += `
-                    <tr class="hover:bg-darkbg-900/50">
-                        <td class="p-3">${p.date}</td>
-                        <td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] ${p.role === 'delegate' ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'}">${p.role === 'delegate' ? 'مندوب' : 'تاجر'}</span></td>
-                        <td class="p-3 font-bold">${p.name}</td>
-                        <td class="p-3 text-gold-400 font-bold">${p.amount} ج.م</td>
-                        <td class="p-3">${p.details}</td>
-                        <td class="p-3"><span class="bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full text-[10px]">${p.status}</span></td>
-                        <td class="p-3 text-center">
-                            <button type="button" onclick="window.approvePayout(${idx})" class="px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs cursor-pointer">تم التحويل بنجاح</button>
-                        </td>
-                    </tr>
-                `;
-            });
-        }
-
-        function refreshDelegateDashboard() {
-            const del = dbState.currentUser;
-            const welcomeElem = document.getElementById('delegateWelcomeName');
-            if(welcomeElem) welcomeElem.innerText = `مرحباً بك، ${del.name}`;
-            
-            const myOrders = dbState.orders.filter(o => o.delegateId === del.id);
-            const tbody = document.getElementById('delegateOrdersTableBody');
-            if(!tbody) return;
-            tbody.innerHTML = '';
-
-            myOrders.forEach(o => {
-                const isLocked = o.delegateLock;
-                tbody.innerHTML += `
-                    <tr class="hover:bg-darkbg-900/50">
-                        <td class="p-3 font-bold text-gold-400">${o.id}</td>
-                        <td class="p-3"><strong>${o.customerName}</strong><br><span class="text-gray-400">${o.customerPhone}</span></td>
-                        <td class="p-3">${o.governorate} - ${o.address}</td>
-                        <td class="p-3 font-bold text-white">${o.amount} ج.م</td>
-                        <td class="p-3"><span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300">${o.status}</span></td>
-                        <td class="p-3 text-center">
-                            <a href="https://wa.me/2${o.customerPhone}?text=${encodeURIComponent('مرحباً بك، معك مندوب التوصيل بخصوص شحنتك رقم ' + o.id)}" target="_blank" class="px-2.5 py-1 rounded bg-emerald-600 text-white inline-block">
-                                <i class="fa-brands fa-whatsapp"></i> واتساب
-                            </a>
-                        </td>
-                        <td class="p-3 text-center">
-                            ${isLocked ? '<span class="text-gray-500 text-[11px]">تم التحديث (مغلق)</span>' : `
-                                <select onchange="window.delegateUpdateOrderStatus('${o.id}', this.value)" class="bg-darkbg-900 border border-gold-500/40 rounded-lg px-2 py-1 text-xs text-white">
-                                    <option value="">-- تغيير الحالة --</option>
-                                    <option value="تم التسليم">تم التسليم</option>
-                                    <option value="تم الرفض">تم الرفض</option>
-                                    <option value="مرتجع">مرتجع</option>
-                                </select>
-                            `}
-                        </td>
-                    </tr>
-                `;
-            });
-        }
-
-        window.delegateUpdateOrderStatus = function(orderId, newStatus) {
-            if (!newStatus) return;
-            const order = dbState.orders.find(o => o.id === orderId);
-            if (order) {
-                order.status = newStatus;
-                order.delegateLock = true;
-                window.showCustomAlert(`تم تحديث حالة الشحنة إلى (${newStatus}) بنجاح.`, "تحديث الحالة");
-                refreshDelegateDashboard();
-            }
-        };
-
-        function refreshMerchantDashboard() {
-            const merch = dbState.currentUser;
-            const welcomeElem = document.getElementById('merchantWelcomeName');
-            if(welcomeElem) welcomeElem.innerText = `مرحباً بك، متجر ${merch.name}`;
-
-            const myOrders = dbState.orders.filter(o => o.merchantId === merch.id);
-            const tbody = document.getElementById('merchantOrdersTableBody');
-            if(!tbody) return;
-            tbody.innerHTML = '';
-
-            myOrders.forEach(o => {
-                const del = dbState.delegates.find(d => d.id === o.delegateId);
-                tbody.innerHTML += `
-                    <tr class="hover:bg-darkbg-900/50">
-                        <td class="p-3 font-bold text-gold-400">${o.id}</td>
-                        <td class="p-3">${o.policyNo}</td>
-                        <td class="p-3"><strong>${o.customerName}</strong><br><span class="text-gray-400">${o.customerPhone}</span></td>
-                        <td class="p-3">${o.governorate} - ${o.address}</td>
-                        <td class="p-3">${o.amount} ج.م <span class="text-[10px] text-gray-400">(شحن: ${o.shippingCost})</span></td>
-                        <td class="p-3">${del ? del.name : 'قيد التعيين'}</td>
-                        <td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300">${o.status}</span></td>
-                    </tr>
-                `;
-            });
-        }
-
-        window.openAddOrderModal = function(role) {
-            document.getElementById('editOrderId').value = '';
-            document.getElementById('orderModalTitle').innerText = 'إضافة شحنة جديدة';
-            document.getElementById('orderForm').reset();
-            
-            const merchantSelect = document.getElementById('orderMerchantId');
-            if(merchantSelect) {
-                merchantSelect.innerHTML = '';
-                dbState.merchants.forEach(m => {
-                    merchantSelect.innerHTML += `<option value="${m.id}">${m.name} (${m.id})</option>`;
-                });
-                if(role === 'merchant' && dbState.currentUser && dbState.role === 'merchant') {
-                    merchantSelect.value = dbState.currentUser.id;
-                    merchantSelect.disabled = true;
-                } else {
-                    merchantSelect.disabled = false;
-                }
-            }
-
-            const delegateSelect = document.getElementById('orderDelegateId');
-            if(delegateSelect) {
-                delegateSelect.innerHTML = `<option value="">-- اختر المندوب --</option>`;
-                dbState.delegates.forEach(d => {
-                    delegateSelect.innerHTML += `<option value="${d.id}">${d.name}</option>`;
-                });
-            }
-
-            const modal = document.getElementById('orderModal');
-            if(modal) {
-                modal.classList.remove('hidden');
-                modal.classList.add('flex');
-            }
-        };
-
-        window.closeOrderModal = function() {
-            const modal = document.getElementById('orderModal');
-            if(modal) {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-            }
-        };
-
-        window.saveOrder = function(e) {
-            e.preventDefault();
-            const idInput = document.getElementById('editOrderId');
-            const id = (idInput && idInput.value) ? idInput.value : 'ORD-' + Math.floor(1000 + Math.random() * 9000);
-            
-            const merchantSelect = document.getElementById('orderMerchantId');
-            const orderObj = {
-                id,
-                policyNo: document.getElementById('orderPolicyNo').value,
-                merchantId: merchantSelect.value || (dbState.currentUser && dbState.role === 'merchant' ? dbState.currentUser.id : 'MER-201'),
-                customerName: document.getElementById('orderCustomerName').value,
-                customerPhone: document.getElementById('orderCustomerPhone').value,
-                governorate: document.getElementById('orderGovernorate').value,
-                address: document.getElementById('orderAddress').value,
-                paymentType: document.getElementById('orderPaymentType').value,
-                amount: parseFloat(document.getElementById('orderAmount').value),
-                shippingCost: parseFloat(document.getElementById('orderShippingCost').value),
-                delegateId: document.getElementById('orderDelegateId').value,
-                status: 'قيد المراجعة',
-                delegateLock: false
-            };
-
-            const index = dbState.orders.findIndex(o => o.id === id);
-            if (index >= 0) {
-                dbState.orders[index] = orderObj;
-            } else {
-                dbState.orders.push(orderObj);
-            }
-
-            window.closeOrderModal();
-            if (dbState.role === 'admin') {
-                refreshAdminData();
-            } else if (dbState.role === 'merchant') {
-                refreshMerchantDashboard();
-            }
-            window.showCustomAlert("تم حفظ الشحنة ومزامنتها مع السحابية بنجاح!", "نجاح");
-        };
-
-        window.editOrder = function(orderId) {
-            const o = dbState.orders.find(item => item.id === orderId);
-            if (!o) return;
-            window.openAddOrderModal('admin');
-            document.getElementById('editOrderId').value = o.id;
-            document.getElementById('orderModalTitle').innerText = 'تعديل الشحنة ' + o.id;
-            document.getElementById('orderPolicyNo').value = o.policyNo;
-            document.getElementById('orderMerchantId').value = o.merchantId;
-            document.getElementById('orderCustomerName').value = o.customerName;
-            document.getElementById('orderCustomerPhone').value = o.customerPhone;
-            document.getElementById('orderGovernorate').value = o.governorate;
-            document.getElementById('orderAddress').value = o.address;
-            document.getElementById('orderPaymentType').value = o.paymentType;
-            document.getElementById('orderAmount').value = o.amount;
-            document.getElementById('orderShippingCost').value = o.shippingCost;
-            document.getElementById('orderDelegateId').value = o.delegateId;
-        };
-
-        window.openAddDelegateModal = function() {
-            const modal = document.getElementById('delegateModal');
-            if(modal) {
-                modal.classList.remove('hidden');
-                modal.classList.add('flex');
-            }
-        };
-
-        window.closeDelegateModal = function() {
-            const modal = document.getElementById('delegateModal');
-            if(modal) {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-            }
-        };
-
-        window.saveDelegate = function(e) {
-            e.preventDefault();
-            const del = {
-                id: document.getElementById('delCodeInput').value,
-                name: document.getElementById('delNameInput').value,
-                phone: document.getElementById('delPhoneInput').value,
-                area: document.getElementById('delAreaInput').value,
-                lat: 30.0444 + (Math.random() - 0.5) * 0.1,
-                lng: 31.2357 + (Math.random() - 0.5) * 0.1
-            };
-            dbState.delegates.push(del);
-            window.closeDelegateModal();
-            refreshAdminData();
-            window.showCustomAlert("تم إضافة المندوب بنجاح!", "نجاح");
-        };
-
-        window.openAddMerchantModal = function() {
-            const modal = document.getElementById('merchantModal');
-            if(modal) {
-                modal.classList.remove('hidden');
-                modal.classList.add('flex');
-            }
-        };
-
-        window.closeMerchantModal = function() {
-            const modal = document.getElementById('merchantModal');
-            if(modal) {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-            }
-        };
-
-        window.saveMerchant = function(e) {
-            e.preventDefault();
-            const merch = {
-                id: document.getElementById('merchCodeInput').value,
-                name: document.getElementById('merchNameInput').value,
-                phone: document.getElementById('merchPhoneInput').value,
-                gov: document.getElementById('merchGovInput').value
-            };
-            dbState.merchants.push(merch);
-            window.closeMerchantModal();
-            refreshAdminData();
-            window.showCustomAlert("تم إضافة التاجر بنجاح!", "نجاح");
-        };
-
-        window.deleteOrder = function(id) {
-            window.showCustomAlert("هل أنت متأكد من حذف هذه الشحنة؟", "تأكيد الحذف", true, (res) => {
-                if(res) {
-                    dbState.orders = dbState.orders.filter(o => o.id !== id);
-                    refreshAdminData();
-                }
-            });
-        };
-
-        window.deleteDelegate = function(id) {
-            window.showCustomAlert("هل أنت متأكد من حذف هذا المندوب؟", "تأكيد الحذف", true, (res) => {
-                if(res) {
-                    dbState.delegates = dbState.delegates.filter(d => d.id !== id);
-                    refreshAdminData();
-                }
-            });
-        };
-
-        window.deleteMerchant = function(id) {
-            window.showCustomAlert("هل أنت متأكد من حذف هذا التاجر؟", "تأكيد الحذف", true, (res) => {
-                if(res) {
-                    dbState.merchants = dbState.merchants.filter(m => m.id !== id);
-                    refreshAdminData();
-                }
-            });
-        };
-
-        window.openDelegatePayoutModal = function() {
-            const amount = prompt("أدخل المبلغ المراد سحبه (ج.م):");
-            if (!amount) return;
-            const details = prompt("أدخل طريقة الصرف ورقم الحساب (فودافون كاش / بنك):");
-            if (!details) return;
-
-            dbState.payoutRequests.push({
-                date: new Date().toLocaleDateString('ar-EG'),
-                role: 'delegate',
-                name: dbState.currentUser.name,
-                amount: parseFloat(amount),
-                details: details,
-                status: 'معلق'
-            });
-            window.showCustomAlert("تم إرسال طلب صرف المستحقات للإدارة بنجاح!", "نجاح");
-        };
-
-        window.openMerchantPayoutModal = function() {
-            const amount = prompt("أدخل المبلغ المراد سحبه (ج.م):");
-            if (!amount) return;
-            const details = prompt("أدخل تفاصيل تحويل المستحقات:");
-            if (!details) return;
-
-            dbState.payoutRequests.push({
-                date: new Date().toLocaleDateString('ar-EG'),
-                role: 'merchant',
-                name: dbState.currentUser.name,
-                amount: parseFloat(amount),
-                details: details,
-                status: 'معلق'
-            });
-            window.showCustomAlert("تم إرسال طلب صرف المستحقات للإدارة بنجاح!", "نجاح");
-        };
-
-        window.approvePayout = function(idx) {
-            dbState.payoutRequests[idx].status = 'تم التحويل';
-            window.showCustomAlert("تم تأكيد تحويل المستحقات وإغلاق الطلب بنجاح.", "تم التحويل");
-            refreshAdminData();
-        };
-
-        function initLiveMap() {
-            const mapContainer = document.getElementById('adminLiveMap');
-            if (!mapContainer) return;
-            if (mapInstance) {
-                mapInstance.remove();
-            }
-            mapInstance = L.map('adminLiveMap').setView([30.0444, 31.2357], 12);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; سفيرا لوجستيك'
-            }).addTo(mapInstance);
-
-            dbState.delegates.forEach(d => {
-                L.marker([d.lat, d.lng]).addTo(mapInstance)
-                    .bindPopup(`<b>${d.name}</b><br>منطقة: ${d.area}<br>الهاتف: ${d.phone}`);
-            });
-        }
-
-        function initAnalyticsChart() {
-            const ctx = document.getElementById('adminProfitLossChart');
-            if (!ctx) return;
-            if (profitChartInstance) profitChartInstance.destroy();
-
-            profitChartInstance = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: ['السبت', 'الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'],
-                    datasets: [{
-                        label: 'صافي أرباح الشحن (ج.م)',
-                        data: [1200, 1900, 1500, 2200, 3100, 2800, 3500],
-                        backgroundColor: '#eab308',
-                        borderRadius: 8
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { labels: { color: '#f8fafc' } } },
-                    scales: {
-                        y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
-                        x: { ticks: { color: '#94a3b8' }, grid: { display: false } }
-                    }
-                }
-            });
-        }
-
-        window.exportToExcel = function() {
-            const ws = XLSX.utils.json_to_sheet(dbState.orders);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "الشحنات");
-            XLSX.writeFile(wb, "Safira_Logistics_Orders.xlsx");
-        };
-
-        window.printWaybill = function(orderId) {
-            const o = dbState.orders.find(item => item.id === orderId);
-            if (!o) return;
-            const merch = dbState.merchants.find(m => m.id === o.merchantId);
-            const del = dbState.delegates.find(d => d.id === o.delegateId);
-
-            const printWindow = window.open('', '_blank');
-            printWindow.document.write(`
-                <!DOCTYPE html>
-                <html lang="ar" dir="rtl">
-                <head>
-                    <meta charset="UTF-8">
-                    <title>بوليصة شحن - ${o.id}</title>
-                    <style>
-                        body { font-family: 'Cairo', Arial, sans-serif; padding: 20px; color: #000; direction: rtl; }
-                        .waybill-box { border: 2px dashed #333; padding: 20px; max-width: 600px; margin: 0 auto; border-radius: 12px; }
-                        .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px; }
-                        .header h2 { margin: 0; color: #1e293b; }
-                        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
-                        .row { margin-bottom: 8px; font-size: 14px; }
-                        .label { font-weight: bold; color: #555; }
-                        .footer { text-align: center; margin-top: 20px; font-size: 12px; border-top: 1px solid #ccc; padding-top: 10px; }
-                    </style>
-                </head>
-                <body>
-                    <div class="waybill-box">
-                        <div class="header">
-                            <h2>سفيرا لوجستيك - Safira Logistics</h2>
-                            <p style="margin: 5px 0 0 0; font-size: 12px;">بوليصة شحن وتوصيل الطرود الرسمية</p>
-                        </div>
-                        <div class="grid">
-                            <div class="row"><span class="label">رقم الشحنة:</span> ${o.id}</div>
-                            <div class="row"><span class="label">رقم البوليصة:</span> ${o.policyNo}</div>
-                            <div class="row"><span class="label">التاجر / المتجر:</span> ${merch ? merch.name : o.merchantId}</div>
-                            <div class="row"><span class="label">تاريخ الإصدار:</span> ${new Date().toLocaleDateString('ar-EG')}</div>
-                        </div>
-                        <hr style="border:0; border-top:1px solid #ddd; margin: 15px 0;">
-                        <div class="row"><span class="label">اسم العميل:</span> ${o.customerName}</div>
-                        <div class="row"><span class="label">رقم الهاتف:</span> ${o.customerPhone}</div>
-                        <div class="row"><span class="label">عنوان التوصيل:</span> ${o.governorate} - ${o.address}</div>
-                        <div class="row"><span class="label">نوع الدفع:</span> ${o.paymentType}</div>
-                        <div class="grid" style="margin-top: 15px; background: #f8fafc; padding: 10px; border-radius: 8px;">
-                            <div class="row"><span class="label">إجمالي المبلغ المطلوب:</span> <strong style="font-size: 16px;">${o.amount} ج.م</strong></div>
-                            <div class="row"><span class="label">تكلفة الشحن:</span> ${o.shippingCost} ج.م</div>
-                        </div>
-                        <div class="row" style="margin-top: 10px;"><span class="label">المندوب المسند:</span> ${del ? del.name : 'قيد التعيين'}</div>
-                        <div class="footer">
-                            <p>شكراً لتعاملكم مع سفيرا لوجستيك | خدمة العملاء: 01000000000</p>
-                        </div>
-                    </div>
-                    <script>
-                        window.onload = function() { window.print(); };
-                    </script>
-                </body>
-                </html>
-            `);
-            printWindow.document.close();
-        };
-
-        window.onload = function() {
-            setTimeout(() => {
-                const badge = document.getElementById('syncStatusBadge');
-                if(badge) {
-                    badge.classList.remove('hidden');
-                    badge.classList.add('flex');
-                }
-            }, 1000);
-            window.renderPortal();
-        };
-    </script>
 </head>
 <body class="min-h-screen flex flex-col bg-darkbg-950 text-slate-100 selection:bg-gold-500 selection:text-black">
 
@@ -836,6 +66,7 @@
 
     <main class="flex-grow p-4 lg:p-8 max-w-7xl mx-auto w-full space-y-6">
 
+        <!-- Role Portal View -->
         <div id="viewPortal" class="space-y-8 py-6">
             <div class="text-center max-w-2xl mx-auto space-y-3">
                 <span class="bg-gold-500/20 text-gold-400 border border-gold-500/30 px-3 py-1 rounded-full text-xs font-bold inline-block">بوابة الخدمات اللوجستية المتكاملة السحابية</span>
@@ -844,7 +75,6 @@
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
-                <!-- Admin Portal Card -->
                 <div class="glass-panel p-6 rounded-3xl border border-gold-500/30 space-y-4 hover:border-gold-500/60 transition group cursor-pointer" onclick="window.openAdminPasswordModal()">
                     <div class="w-14 h-14 rounded-2xl gold-gradient-bg text-black flex items-center justify-center text-2xl shadow-xl group-hover:scale-110 transition">
                         <i class="fa-solid fa-user-shield"></i>
@@ -858,7 +88,6 @@
                     </button>
                 </div>
 
-                <!-- Delegate Portal Card -->
                 <div class="glass-panel p-6 rounded-3xl border border-amber-500/30 space-y-4 hover:border-amber-500/60 transition group">
                     <div class="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-300 flex items-center justify-center text-2xl shadow-xl group-hover:scale-110 transition">
                         <i class="fa-solid fa-motorcycle"></i>
@@ -875,7 +104,6 @@
                     </div>
                 </div>
 
-                <!-- Merchant Portal Card -->
                 <div class="glass-panel p-6 rounded-3xl border border-emerald-500/30 space-y-4 hover:border-emerald-500/60 transition group">
                     <div class="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 flex items-center justify-center text-2xl shadow-xl group-hover:scale-110 transition">
                         <i class="fa-solid fa-store"></i>
@@ -894,8 +122,8 @@
             </div>
         </div>
 
+        <!-- Admin Dashboard View -->
         <div id="viewAdmin" class="hidden space-y-6">
-            <!-- Stats -->
             <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
                 <div class="glass-panel p-4 rounded-2xl border border-gold-500/30">
                     <span class="text-xs text-gray-400 block font-bold">إجمالي الشحنات</span>
@@ -923,7 +151,6 @@
                 </div>
             </div>
 
-            <!-- Admin Tabs Navigation -->
             <div class="flex items-center gap-2 overflow-x-auto pb-2">
                 <button type="button" onclick="window.switchAdminTab('orders')" id="adminTabBtnOrders" class="px-4 py-2.5 rounded-xl font-bold text-sm bg-gold-500/20 text-gold-400 border border-gold-500/40 flex items-center gap-2 whitespace-nowrap cursor-pointer">
                     <i class="fa-solid fa-boxes-stacked"></i> إدارة الشحنات
@@ -942,7 +169,7 @@
                 </button>
             </div>
 
-            <!-- Orders Tab Content -->
+            <!-- Admin Tab: Orders -->
             <div id="adminTabOrdersSection" class="glass-panel p-6 rounded-3xl border border-gold-500/30 space-y-4">
                 <div class="flex flex-wrap items-center justify-between gap-4">
                     <div class="flex items-center gap-3 flex-wrap">
@@ -987,7 +214,7 @@
                 </div>
             </div>
 
-            <!-- Delegates Tab Content -->
+            <!-- Admin Tab: Delegates -->
             <div id="adminTabDelegatesSection" class="hidden space-y-6">
                 <div class="glass-panel p-6 rounded-3xl border border-gold-500/30 space-y-4">
                     <div class="flex justify-between items-center">
@@ -1021,7 +248,7 @@
                 </div>
             </div>
 
-            <!-- Merchants Tab Content -->
+            <!-- Admin Tab: Merchants -->
             <div id="adminTabMerchantsSection" class="hidden glass-panel p-6 rounded-3xl border border-gold-500/30 space-y-4">
                 <div class="flex justify-between items-center">
                     <h3 class="font-extrabold text-gold-400 text-sm">إدارة التجار</h3>
@@ -1047,7 +274,7 @@
                 </div>
             </div>
 
-            <!-- Accounts Tab Content -->
+            <!-- Admin Tab: Accounts -->
             <div id="adminTabAccountsSection" class="hidden space-y-6">
                 <div class="glass-panel p-6 rounded-3xl border border-gold-500/30 space-y-4">
                     <h3 class="font-extrabold text-gold-400 text-sm flex items-center gap-2">
@@ -1072,7 +299,7 @@
                 </div>
             </div>
 
-            <!-- Analytics Tab Content -->
+            <!-- Admin Tab: Analytics -->
             <div id="adminTabAnalyticsSection" class="hidden space-y-6">
                 <div class="glass-panel p-6 rounded-3xl border border-gold-500/30 space-y-4">
                     <h3 class="font-extrabold text-gold-400 text-sm flex items-center gap-2">
@@ -1085,6 +312,7 @@
             </div>
         </div>
 
+        <!-- Delegate Dashboard View -->
         <div id="viewDelegate" class="hidden space-y-6">
             <div class="glass-panel p-6 rounded-3xl border border-amber-500/30 space-y-4">
                 <div class="flex flex-wrap justify-between items-center gap-4">
@@ -1119,6 +347,7 @@
             </div>
         </div>
 
+        <!-- Merchant Dashboard View -->
         <div id="viewMerchant" class="hidden space-y-6">
             <div class="glass-panel p-6 rounded-3xl border border-emerald-500/30 space-y-4">
                 <div class="flex flex-wrap justify-between items-center gap-4">
@@ -1160,6 +389,7 @@
 
     </main>
 
+    <!-- Modals & Popups -->
     <div id="customAlertModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
         <div class="glass-panel p-6 rounded-3xl border border-gold-500/40 w-full max-w-sm space-y-4 shadow-2xl text-center">
             <div id="customAlertIcon" class="text-gold-400 text-3xl mb-1"><i class="fa-solid fa-circle-info"></i></div>
@@ -1172,7 +402,6 @@
         </div>
     </div>
 
-    <!-- Password Modal -->
     <div id="passwordModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
         <div class="glass-panel p-6 rounded-3xl border border-gold-500/40 w-full max-w-md space-y-4 shadow-2xl">
             <div class="flex items-center justify-between">
@@ -1189,8 +418,6 @@
             </div>
         </div>
     </div>
-
-    <!-- Order Modal -->
     <div id="orderModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4 overflow-y-auto">
         <div class="glass-panel p-6 rounded-3xl border border-gold-500/40 w-full max-w-2xl space-y-4 my-8 shadow-2xl">
             <div class="flex items-center justify-between">
@@ -1265,7 +492,6 @@
         </div>
     </div>
 
-    <!-- Delegate Modal -->
     <div id="delegateModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
         <div class="glass-panel p-6 rounded-3xl border border-gold-500/40 w-full max-w-md space-y-4 shadow-2xl">
             <div class="flex items-center justify-between">
@@ -1297,7 +523,6 @@
         </div>
     </div>
 
-    <!-- Merchant Modal -->
     <div id="merchantModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
         <div class="glass-panel p-6 rounded-3xl border border-gold-500/40 w-full max-w-md space-y-4 shadow-2xl">
             <div class="flex items-center justify-between">
@@ -1329,5 +554,792 @@
         </div>
     </div>
 
+    <script>
+        window.dbState = {
+            currentUser: null,
+            role: null,
+            orders: [
+                { id: 'ORD-1001', policyNo: 'POL-5541', merchantId: 'MER-201', customerName: 'أحمد محمود', customerPhone: '01012345678', governorate: 'القاهرة', address: '15 شارع التحرير', paymentType: 'نقدي (COD)', amount: 650, shippingCost: 60, delegateId: 'DEL-101', status: 'قيد التوصيل', delegateLock: false },
+                { id: 'ORD-1002', policyNo: 'POL-5542', merchantId: 'MER-202', customerName: 'محمد علي', customerPhone: '01098765432', governorate: 'الجيزة', address: '22 شارع الهرم', paymentType: 'نقدي (COD)', amount: 1200, shippingCost: 75, delegateId: 'DEL-102', status: 'تم التسليم', delegateLock: true },
+                { id: 'ORD-1003', policyNo: 'POL-5543', merchantId: 'MER-201', customerName: 'سارة إبراهيم', customerPhone: '01055544433', governorate: 'الإسكندرية', address: 'كورنيش الإسكندرية', paymentType: 'مدفوع مسبقاً (إلكتروني)', amount: 450, shippingCost: 90, delegateId: '', status: 'قيد المراجعة', delegateLock: false }
+            ],
+            delegates: [
+                { id: 'DEL-101', name: 'كابتن حسن مرعي', phone: '01011122233', area: 'القاهرة وسط', lat: 30.0444, lng: 31.2357 },
+                { id: 'DEL-102', name: 'كابتن إسلام الشريف', phone: '01044455566', area: 'الجيزة والهرم', lat: 29.9792, lng: 31.1342 }
+            ],
+            merchants: [
+                { id: 'MER-201', name: 'متجر الأزياء الراقية', phone: '01022233344', gov: 'القاهرة' },
+                { id: 'MER-202', name: 'إلكترونيات المستقبل', phone: '01088899900', gov: 'الجيزة' }
+            ],
+            payoutRequests: []
+        };
+
+        window.mapInstance = null;
+        window.profitChartInstance = null;
+        window.customAlertCallback = null;
+
+        window.showCustomAlert = function(message, title = 'تنبيه النظام', showCancel = false, callback = null) {
+            const tElem = document.getElementById('customAlertTitle');
+            const mElem = document.getElementById('customAlertMessage');
+            if(tElem) tElem.innerText = title;
+            if(mElem) mElem.innerText = message;
+            window.customAlertCallback = callback;
+            
+            const cancelBtn = document.getElementById('customAlertCancelBtn');
+            if (cancelBtn) {
+                if (showCancel) cancelBtn.classList.remove('hidden');
+                else cancelBtn.classList.add('hidden');
+            }
+
+            const modal = document.getElementById('customAlertModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+        };
+
+        window.closeCustomAlert = function(result) {
+            const modal = document.getElementById('customAlertModal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+            if (window.customAlertCallback) {
+                const cb = window.customAlertCallback;
+                window.customAlertCallback = null;
+                cb(result);
+            }
+        };
+
+        window.renderPortal = function() {
+            window.navigateToPortal();
+        };
+
+        window.navigateToPortal = function() {
+            window.dbState.currentUser = null;
+            window.dbState.role = null;
+            const userBadge = document.getElementById('currentUserBadge');
+            const btnLogout = document.getElementById('btnLogoutNav');
+            if(userBadge) { userBadge.classList.add('hidden'); userBadge.classList.remove('flex'); }
+            if(btnLogout) { btnLogout.classList.add('hidden'); }
+            
+            const vAdmin = document.getElementById('viewAdmin');
+            const vDelegate = document.getElementById('viewDelegate');
+            const vMerchant = document.getElementById('viewMerchant');
+            const vPortal = document.getElementById('viewPortal');
+            if(vAdmin) vAdmin.classList.add('hidden');
+            if(vDelegate) vDelegate.classList.add('hidden');
+            if(vMerchant) vMerchant.classList.add('hidden');
+            if(vPortal) vPortal.classList.remove('hidden');
+        };
+
+        window.openAdminPasswordModal = function() {
+            const pwdInput = document.getElementById('securePasswordInput');
+            if(pwdInput) pwdInput.value = '';
+            const modal = document.getElementById('passwordModal');
+            if(modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                if(pwdInput) pwdInput.focus();
+            }
+        };
+
+        window.closePasswordModal = function() {
+            const modal = document.getElementById('passwordModal');
+            if(modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        };
+
+        window.verifyAdminPassword = function() {
+            const pwdInput = document.getElementById('securePasswordInput');
+            const val = pwdInput ? pwdInput.value : '';
+            if (val === 'safira172096') {
+                window.closePasswordModal();
+                window.loginAsAdmin();
+            } else {
+                window.showCustomAlert("كلمة المرور غير صحيحة! كلمة المرور الافتراضية للإدارة هي: safira172096", "خطأ في التحقق");
+            }
+        };
+
+        window.loginAsAdmin = function() {
+            window.dbState.currentUser = 'الإدارة المركزية';
+            window.dbState.role = 'admin';
+            updateUserBadge('الإدارة المركزية', 'مدير النظام العام');
+            
+            const vPortal = document.getElementById('viewPortal');
+            const vAdmin = document.getElementById('viewAdmin');
+            const btnLogout = document.getElementById('btnLogoutNav');
+            if(vPortal) vPortal.classList.add('hidden');
+            if(vAdmin) vAdmin.classList.remove('hidden');
+            if(btnLogout) btnLogout.classList.remove('hidden');
+            
+            window.switchAdminTab('orders');
+            refreshAdminData();
+        };
+
+        window.loginAsDelegate = function() {
+            const inputElem = document.getElementById('loginDelegateCode');
+            if(!inputElem) return;
+            const code = inputElem.value.trim();
+            const del = window.dbState.delegates.find(d => d.id === code || d.name.includes(code));
+            if (!del) {
+                window.showCustomAlert("كود المندوب غير صحيح! يرجى التأكد من الكود (مثال: DEL-101)", "خطأ في تسجيل الدخول");
+                return;
+            }
+            window.dbState.currentUser = del;
+            window.dbState.role = 'delegate';
+            updateUserBadge(del.name, `مندوب توصيل (${del.id})`);
+
+            const vPortal = document.getElementById('viewPortal');
+            const vDelegate = document.getElementById('viewDelegate');
+            const btnLogout = document.getElementById('btnLogoutNav');
+            if(vPortal) vPortal.classList.add('hidden');
+            if(vDelegate) vDelegate.classList.remove('hidden');
+            if(btnLogout) btnLogout.classList.remove('hidden');
+            
+            refreshDelegateDashboard();
+        };
+
+        window.loginAsMerchant = function() {
+            const inputElem = document.getElementById('loginMerchantCode');
+            if(!inputElem) return;
+            const code = inputElem.value.trim();
+            const merch = window.dbState.merchants.find(m => m.id === code || m.name.includes(code));
+            if (!merch) {
+                window.showCustomAlert("كود التاجر غير صحيح! يرجى التأكد من الكود (مثال: MER-201)", "خطأ في تسجيل الدخول");
+                return;
+            }
+            window.dbState.currentUser = merch;
+            window.dbState.role = 'merchant';
+            updateUserBadge(merch.name, `تاجر معتمد (${merch.id})`);
+
+            const vPortal = document.getElementById('viewPortal');
+            const vMerchant = document.getElementById('viewMerchant');
+            const btnLogout = document.getElementById('btnLogoutNav');
+            if(vPortal) vPortal.classList.add('hidden');
+            if(vMerchant) vMerchant.classList.remove('hidden');
+            if(btnLogout) btnLogout.classList.remove('hidden');
+            
+            refreshMerchantDashboard();
+        };
+
+        function updateUserBadge(name, role) {
+            const nElem = document.getElementById('currentUserName');
+            const rElem = document.getElementById('currentUserRoleTag');
+            const badge = document.getElementById('currentUserBadge');
+            if(nElem) nElem.innerText = name;
+            if(rElem) rElem.innerText = role;
+            if(badge) {
+                badge.classList.remove('hidden');
+                badge.classList.add('flex');
+            }
+        }
+
+        window.switchAdminTab = function(tab) {
+            ['Orders', 'Delegates', 'Merchants', 'Accounts', 'Analytics'].forEach(t => {
+                const sec = document.getElementById(`adminTab${t}Section`);
+                const btn = document.getElementById(`adminTabBtn${t}`);
+                if (sec) sec.classList.add('hidden');
+                if (btn) {
+                    btn.className = "px-4 py-2.5 rounded-xl font-bold text-sm bg-gray-900 text-gray-400 border border-gray-800 flex items-center gap-2 whitespace-nowrap hover:text-white cursor-pointer";
+                }
+            });
+
+            const activeSec = document.getElementById(`adminTab${tab.charAt(0).toUpperCase() + tab.slice(1)}Section`);
+            if(activeSec) activeSec.classList.remove('hidden');
+            
+            const activeBtn = document.getElementById(`adminTabBtn${tab.charAt(0).toUpperCase() + tab.slice(1)}`);
+            if (activeBtn) {
+                activeBtn.className = "px-4 py-2.5 rounded-xl font-bold text-sm bg-gold-500/20 text-gold-400 border border-gold-500/40 flex items-center gap-2 whitespace-nowrap cursor-pointer";
+            }
+
+            if (tab === 'delegates') setTimeout(initLiveMap, 300);
+            if (tab === 'analytics') setTimeout(initAnalyticsChart, 300);
+        };
+
+        function refreshAdminData() {
+            const total = window.dbState.orders.length;
+            const pending = window.dbState.orders.filter(o => o.status === 'قيد التوصيل' || o.status === 'قيد المراجعة').length;
+            const delivered = window.dbState.orders.filter(o => o.status === 'تم التسليم').length;
+            const returned = window.dbState.orders.filter(o => o.status === 'مرتجع' || o.status === 'تم الرفض').length;
+            const totalAmount = window.dbState.orders.reduce((sum, o) => sum + (o.status === 'تم التسليم' ? o.amount : 0), 0);
+            const netProfit = window.dbState.orders.reduce((sum, o) => sum + (o.status === 'تم التسليم' ? o.shippingCost : 0), 0);
+
+            const sTot = document.getElementById('statTotalOrders');
+            const sPend = document.getElementById('statPendingOrders');
+            const sDel = document.getElementById('statDeliveredOrders');
+            const sRet = document.getElementById('statReturnedOrders');
+            const sAmt = document.getElementById('statTotalAmount');
+            const sProf = document.getElementById('statNetProfit');
+
+            if(sTot) sTot.innerText = total;
+            if(sPend) sPend.innerText = pending;
+            if(sDel) sDel.innerText = delivered;
+            if(sRet) sRet.innerText = returned;
+            if(sAmt) sAmt.innerText = totalAmount + ' ج.م';
+            if(sProf) sProf.innerText = netProfit + ' ج.م';
+
+            window.renderAdminOrdersTable();
+            renderAdminDelegatesTable();
+            renderAdminMerchantsTable();
+            renderAdminPayoutsTable();
+        }
+
+        window.renderAdminOrdersTable = function() {
+            const tbody = document.getElementById('adminOrdersTableBody');
+            if(!tbody) return;
+            tbody.innerHTML = '';
+            const searchInput = document.getElementById('adminSearchInput');
+            const search = searchInput ? searchInput.value.toLowerCase() : '';
+            const filterStatusElem = document.getElementById('adminFilterStatus');
+            const filterStatus = filterStatusElem ? filterStatusElem.value : '';
+
+            const filtered = window.dbState.orders.filter(o => {
+                const matchSearch = o.id.toLowerCase().includes(search) || o.policyNo.toLowerCase().includes(search) || o.customerName.toLowerCase().includes(search) || o.customerPhone.includes(search);
+                const matchStatus = filterStatus ? o.status === filterStatus : true;
+                return matchSearch && matchStatus;
+            });
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">لا توجد شحنات مطابقة للبحث</td></tr>`;
+                return;
+            }
+
+            filtered.forEach(o => {
+                const merch = window.dbState.merchants.find(m => m.id === o.merchantId);
+                const del = window.dbState.delegates.find(d => d.id === o.delegateId);
+                
+                let badgeClass = "bg-amber-500/20 text-amber-300 border-amber-500/30";
+                if (o.status === 'تم التسليم') badgeClass = "bg-emerald-500/20 text-emerald-300 border-emerald-500/30";
+                if (o.status === 'مرتجع' || o.status === 'تم الرفض') badgeClass = "bg-rose-500/20 text-rose-300 border-rose-500/30";
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-darkbg-900/50 transition">
+                        <td class="p-3 font-bold text-gold-400">${o.id}</td>
+                        <td class="p-3">${o.policyNo}</td>
+                        <td class="p-3">${merch ? merch.name : o.merchantId}</td>
+                        <td class="p-3"><strong>${o.customerName}</strong><br><span class="text-gray-400">${o.customerPhone}</span></td>
+                        <td class="p-3">${o.governorate} - ${o.address}</td>
+                        <td class="p-3"><span class="text-white font-bold">${o.amount} ج.م</span><br><span class="text-[10px] text-gray-400">شحن: ${o.shippingCost} ج.م</span></td>
+                        <td class="p-3">${del ? del.name : '<span class="text-gray-500">غير مسند</span>'}</td>
+                        <td class="p-3"><span class="px-2.5 py-1 rounded-full border text-[10px] font-bold ${badgeClass}">${o.status}</span></td>
+                        <td class="p-3 text-center space-x-1 space-x-reverse">
+                            <button type="button" onclick="window.printWaybill('${o.id}')" title="طباعة بوليصة الشحن" class="px-2 py-1 rounded bg-amber-600/30 border border-amber-600/50 text-amber-300 hover:bg-amber-600 hover:text-white transition cursor-pointer">
+                                <i class="fa-solid fa-print"></i>
+                            </button>
+                            <a href="https://wa.me/2${o.customerPhone}?text=${encodeURIComponent('عزيزي العميل ' + o.customerName + '، شحنتك رقم ' + o.id + ' في طريقها إليك من سفيرا لوجستيك.')}" target="_blank" class="px-2 py-1 rounded bg-emerald-600/30 border border-emerald-600/50 text-emerald-300 hover:bg-emerald-600 hover:text-white transition inline-block">
+                                <i class="fa-brands fa-whatsapp"></i>
+                            </a>
+                            <button type="button" onclick="window.editOrder('${o.id}')" class="px-2 py-1 rounded bg-blue-600/30 border border-blue-600/50 text-blue-300 hover:bg-blue-600 hover:text-white transition cursor-pointer">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+                            <button type="button" onclick="window.deleteOrder('${o.id}')" class="px-2 py-1 rounded bg-rose-600/30 border border-rose-600/50 text-rose-300 hover:bg-rose-600 hover:text-white transition cursor-pointer">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        };
+
+        function renderAdminDelegatesTable() {
+            const tbody = document.getElementById('adminDelegatesTableBody');
+            if(!tbody) return;
+            tbody.innerHTML = '';
+            window.dbState.delegates.forEach(d => {
+                const assignedCount = window.dbState.orders.filter(o => o.delegateId === d.id).length;
+                tbody.innerHTML += `
+                    <tr class="hover:bg-darkbg-900/50">
+                        <td class="p-3 font-bold text-gold-400">${d.id}</td>
+                        <td class="p-3">${d.name}</td>
+                        <td class="p-3">${d.phone}</td>
+                        <td class="p-3">${d.area}</td>
+                        <td class="p-3"><span class="bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full">${assignedCount} شحنة</span></td>
+                        <td class="p-3 text-center">
+                            <button type="button" onclick="window.deleteDelegate('${d.id}')" class="px-2.5 py-1 rounded bg-rose-600/30 text-rose-300 hover:bg-rose-600 hover:text-white transition cursor-pointer">حذف</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function renderAdminMerchantsTable() {
+            const tbody = document.getElementById('adminMerchantsTableBody');
+            if(!tbody) return;
+            tbody.innerHTML = '';
+            window.dbState.merchants.forEach(m => {
+                const merchOrders = window.dbState.orders.filter(o => o.merchantId === m.id);
+                const totalDue = merchOrders.reduce((sum, o) => sum + (o.status === 'تم التسليم' ? (o.amount - o.shippingCost) : 0), 0);
+                tbody.innerHTML += `
+                    <tr class="hover:bg-darkbg-900/50">
+                        <td class="p-3 font-bold text-gold-400">${m.id}</td>
+                        <td class="p-3">${m.name}</td>
+                        <td class="p-3">${m.phone}</td>
+                        <td class="p-3">${m.gov}</td>
+                        <td class="p-3">${merchOrders.length} شحنة</td>
+                        <td class="p-3 text-emerald-400 font-bold">${totalDue} ج.م</td>
+                        <td class="p-3 text-center">
+                            <button type="button" onclick="window.deleteMerchant('${m.id}')" class="px-2.5 py-1 rounded bg-rose-600/30 text-rose-300 hover:bg-rose-600 hover:text-white transition cursor-pointer">حذف</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function renderAdminPayoutsTable() {
+            const tbody = document.getElementById('adminPayoutRequestsTableBody');
+            if(!tbody) return;
+            tbody.innerHTML = '';
+            if (window.dbState.payoutRequests.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-gray-400">لا توجد طلبات صرف مستحقات معلقة حالياً</td></tr>`;
+                return;
+            }
+            window.dbState.payoutRequests.forEach((p, idx) => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-darkbg-900/50">
+                        <td class="p-3">${p.date}</td>
+                        <td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] ${p.role === 'delegate' ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'}">${p.role === 'delegate' ? 'مندوب' : 'تاجر'}</span></td>
+                        <td class="p-3 font-bold">${p.name}</td>
+                        <td class="p-3 text-gold-400 font-bold">${p.amount} ج.م</td>
+                        <td class="p-3">${p.details}</td>
+                        <td class="p-3"><span class="bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full text-[10px]">${p.status}</span></td>
+                        <td class="p-3 text-center">
+                            <button type="button" onclick="window.approvePayout(${idx})" class="px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs cursor-pointer">تم التحويل بنجاح</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function refreshDelegateDashboard() {
+            const del = window.dbState.currentUser;
+            const welcomeElem = document.getElementById('delegateWelcomeName');
+            if(welcomeElem && del) welcomeElem.innerText = `مرحباً بك، ${del.name}`;
+            
+            const myOrders = window.dbState.orders.filter(o => del && o.delegateId === del.id);
+            const tbody = document.getElementById('delegateOrdersTableBody');
+            if(!tbody) return;
+            tbody.innerHTML = '';
+
+            myOrders.forEach(o => {
+                const isLocked = o.delegateLock;
+                tbody.innerHTML += `
+                    <tr class="hover:bg-darkbg-900/50">
+                        <td class="p-3 font-bold text-gold-400">${o.id}</td>
+                        <td class="p-3"><strong>${o.customerName}</strong><br><span class="text-gray-400">${o.customerPhone}</span></td>
+                        <td class="p-3">${o.governorate} - ${o.address}</td>
+                        <td class="p-3 font-bold text-white">${o.amount} ج.م</td>
+                        <td class="p-3"><span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300">${o.status}</span></td>
+                        <td class="p-3 text-center">
+                            <a href="https://wa.me/2${o.customerPhone}?text=${encodeURIComponent('مرحباً بك، معك مندوب التوصيل بخصوص شحنتك رقم ' + o.id)}" target="_blank" class="px-2.5 py-1 rounded bg-emerald-600 text-white inline-block">
+                                <i class="fa-brands fa-whatsapp"></i> واتساب
+                            </a>
+                        </td>
+                        <td class="p-3 text-center">
+                            ${isLocked ? '<span class="text-gray-500 text-[11px]">تم التحديث (مغلق)</span>' : `
+                                <select onchange="window.delegateUpdateOrderStatus('${o.id}', this.value)" class="bg-darkbg-900 border border-gold-500/40 rounded-lg px-2 py-1 text-xs text-white">
+                                    <option value="">-- تغيير الحالة --</option>
+                                    <option value="تم التسليم">تم التسليم</option>
+                                    <option value="تم الرفض">تم الرفض</option>
+                                    <option value="مرتجع">مرتجع</option>
+                                </select>
+                            `}
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        window.delegateUpdateOrderStatus = function(orderId, newStatus) {
+            if (!newStatus) return;
+            const order = window.dbState.orders.find(o => o.id === orderId);
+            if (order) {
+                order.status = newStatus;
+                order.delegateLock = true;
+                window.showCustomAlert(`تم تحديث حالة الشحنة إلى (${newStatus}) بنجاح.`, "تحديث الحالة");
+                refreshDelegateDashboard();
+            }
+        };
+
+        function refreshMerchantDashboard() {
+            const merch = window.dbState.currentUser;
+            const welcomeElem = document.getElementById('merchantWelcomeName');
+            if(welcomeElem && merch) welcomeElem.innerText = `مرحباً بك، متجر ${merch.name}`;
+
+            const myOrders = window.dbState.orders.filter(o => merch && o.merchantId === merch.id);
+            const tbody = document.getElementById('merchantOrdersTableBody');
+            if(!tbody) return;
+            tbody.innerHTML = '';
+
+            myOrders.forEach(o => {
+                const del = window.dbState.delegates.find(d => d.id === o.delegateId);
+                tbody.innerHTML += `
+                    <tr class="hover:bg-darkbg-900/50">
+                        <td class="p-3 font-bold text-gold-400">${o.id}</td>
+                        <td class="p-3">${o.policyNo}</td>
+                        <td class="p-3"><strong>${o.customerName}</strong><br><span class="text-gray-400">${o.customerPhone}</span></td>
+                        <td class="p-3">${o.governorate} - ${o.address}</td>
+                        <td class="p-3">${o.amount} ج.م <span class="text-[10px] text-gray-400">(شحن: ${o.shippingCost})</span></td>
+                        <td class="p-3">${del ? del.name : 'قيد التعيين'}</td>
+                        <td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300">${o.status}</span></td>
+                    </tr>
+                `;
+            });
+        }
+
+        window.openAddOrderModal = function(role) {
+            const editId = document.getElementById('editOrderId');
+            const modalTitle = document.getElementById('orderModalTitle');
+            const form = document.getElementById('orderForm');
+            if(editId) editId.value = '';
+            if(modalTitle) modalTitle.innerText = 'إضافة شحنة جديدة';
+            if(form) form.reset();
+            
+            const merchantSelect = document.getElementById('orderMerchantId');
+            if(merchantSelect) {
+                merchantSelect.innerHTML = '';
+                window.dbState.merchants.forEach(m => {
+                    merchantSelect.innerHTML += `<option value="${m.id}">${m.name} (${m.id})</option>`;
+                });
+                if(role === 'merchant' && window.dbState.currentUser && window.dbState.role === 'merchant') {
+                    merchantSelect.value = window.dbState.currentUser.id;
+                    merchantSelect.disabled = true;
+                } else {
+                    merchantSelect.disabled = false;
+                }
+            }
+
+            const delegateSelect = document.getElementById('orderDelegateId');
+            if(delegateSelect) {
+                delegateSelect.innerHTML = `<option value="">-- اختر المندوب --</option>`;
+                window.dbState.delegates.forEach(d => {
+                    delegateSelect.innerHTML += `<option value="${d.id}">${d.name}</option>`;
+                });
+            }
+
+            const modal = document.getElementById('orderModal');
+            if(modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+        };
+
+        window.closeOrderModal = function() {
+            const modal = document.getElementById('orderModal');
+            if(modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        };
+
+        window.saveOrder = function(e) {
+            e.preventDefault();
+            const idInput = document.getElementById('editOrderId');
+            const id = (idInput && idInput.value) ? idInput.value : 'ORD-' + Math.floor(1000 + Math.random() * 9000);
+            
+            const merchantSelect = document.getElementById('orderMerchantId');
+            const orderObj = {
+                id,
+                policyNo: document.getElementById('orderPolicyNo').value,
+                merchantId: merchantSelect ? merchantSelect.value : 'MER-201',
+                customerName: document.getElementById('orderCustomerName').value,
+                customerPhone: document.getElementById('orderCustomerPhone').value,
+                governorate: document.getElementById('orderGovernorate').value,
+                address: document.getElementById('orderAddress').value,
+                paymentType: document.getElementById('orderPaymentType').value,
+                amount: parseFloat(document.getElementById('orderAmount').value),
+                shippingCost: parseFloat(document.getElementById('orderShippingCost').value),
+                delegateId: document.getElementById('orderDelegateId').value,
+                status: 'قيد المراجعة',
+                delegateLock: false
+            };
+
+            const index = window.dbState.orders.findIndex(o => o.id === id);
+            if (index >= 0) {
+                window.dbState.orders[index] = orderObj;
+            } else {
+                window.dbState.orders.push(orderObj);
+            }
+
+            window.closeOrderModal();
+            if (window.dbState.role === 'admin') {
+                refreshAdminData();
+            } else if (window.dbState.role === 'merchant') {
+                refreshMerchantDashboard();
+            }
+            window.showCustomAlert("تم حفظ الشحنة ومزامنتها بنجاح!", "نجاح");
+        };
+
+        window.editOrder = function(orderId) {
+            const o = window.dbState.orders.find(item => item.id === orderId);
+            if (!o) return;
+            window.openAddOrderModal('admin');
+            document.getElementById('editOrderId').value = o.id;
+            document.getElementById('orderModalTitle').innerText = 'تعديل الشحنة ' + o.id;
+            document.getElementById('orderPolicyNo').value = o.policyNo;
+            document.getElementById('orderMerchantId').value = o.merchantId;
+            document.getElementById('orderCustomerName').value = o.customerName;
+            document.getElementById('orderCustomerPhone').value = o.customerPhone;
+            document.getElementById('orderGovernorate').value = o.governorate;
+            document.getElementById('orderAddress').value = o.address;
+            document.getElementById('orderPaymentType').value = o.paymentType;
+            document.getElementById('orderAmount').value = o.amount;
+            document.getElementById('orderShippingCost').value = o.shippingCost;
+            document.getElementById('orderDelegateId').value = o.delegateId;
+        };
+
+        window.openAddDelegateModal = function() {
+            const modal = document.getElementById('delegateModal');
+            if(modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+        };
+
+        window.closeDelegateModal = function() {
+            const modal = document.getElementById('delegateModal');
+            if(modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        };
+
+        window.saveDelegate = function(e) {
+            e.preventDefault();
+            const del = {
+                id: document.getElementById('delCodeInput').value,
+                name: document.getElementById('delNameInput').value,
+                phone: document.getElementById('delPhoneInput').value,
+                area: document.getElementById('delAreaInput').value,
+                lat: 30.0444 + (Math.random() - 0.5) * 0.1,
+                lng: 31.2357 + (Math.random() - 0.5) * 0.1
+            };
+            window.dbState.delegates.push(del);
+            window.closeDelegateModal();
+            refreshAdminData();
+            window.showCustomAlert("تم إضافة المندوب بنجاح!", "نجاح");
+        };
+
+        window.openAddMerchantModal = function() {
+            const modal = document.getElementById('merchantModal');
+            if(modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+        };
+
+        window.closeMerchantModal = function() {
+            const modal = document.getElementById('merchantModal');
+            if(modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        };
+
+        window.saveMerchant = function(e) {
+            e.preventDefault();
+            const merch = {
+                id: document.getElementById('merchCodeInput').value,
+                name: document.getElementById('merchNameInput').value,
+                phone: document.getElementById('merchPhoneInput').value,
+                gov: document.getElementById('merchGovInput').value
+            };
+            window.dbState.merchants.push(merch);
+            window.closeMerchantModal();
+            refreshAdminData();
+            window.showCustomAlert("تم إضافة التاجر بنجاح!", "نجاح");
+        };
+
+        window.deleteOrder = function(id) {
+            window.showCustomAlert("هل أنت متأكد من حذف هذه الشحنة؟", "تأكيد الحذف", true, (res) => {
+                if(res) {
+                    window.dbState.orders = window.dbState.orders.filter(o => o.id !== id);
+                    refreshAdminData();
+                }
+            });
+        };
+
+        window.deleteDelegate = function(id) {
+            window.showCustomAlert("هل أنت متأكد من حذف هذا المندوب؟", "تأكيد الحذف", true, (res) => {
+                if(res) {
+                    window.dbState.delegates = window.dbState.delegates.filter(d => d.id !== id);
+                    refreshAdminData();
+                }
+            });
+        };
+
+        window.deleteMerchant = function(id) {
+            window.showCustomAlert("هل أنت متأكد من حذف هذا التاجر؟", "تأكيد الحذف", true, (res) => {
+                if(res) {
+                    window.dbState.merchants = window.dbState.merchants.filter(m => m.id !== id);
+                    refreshAdminData();
+                }
+            });
+        };
+
+        window.openDelegatePayoutModal = function() {
+            const amount = prompt("أدخل المبلغ المراد سحبه (ج.م):");
+            if (!amount) return;
+            const details = prompt("أدخل طريقة الصرف ورقم الحساب (فودافون كاش / بنك):");
+            if (!details) return;
+
+            window.dbState.payoutRequests.push({
+                date: new Date().toLocaleDateString('ar-EG'),
+                role: 'delegate',
+                name: window.dbState.currentUser.name,
+                amount: parseFloat(amount),
+                details: details,
+                status: 'معلق'
+            });
+            window.showCustomAlert("تم إرسال طلب صرف المستحقات للإدارة بنجاح!", "نجاح");
+        };
+
+        window.openMerchantPayoutModal = function() {
+            const amount = prompt("أدخل المبلغ المراد سحبه (ج.م):");
+            if (!amount) return;
+            const details = prompt("أدخل تفاصيل تحويل المستحقات:");
+            if (!details) return;
+
+            window.dbState.payoutRequests.push({
+                date: new Date().toLocaleDateString('ar-EG'),
+                role: 'merchant',
+                name: window.dbState.currentUser.name,
+                amount: parseFloat(amount),
+                details: details,
+                status: 'معلق'
+            });
+            window.showCustomAlert("تم إرسال طلب صرف المستحقات للإدارة بنجاح!", "نجاح");
+        };
+
+        window.approvePayout = function(idx) {
+            window.dbState.payoutRequests[idx].status = 'تم التحويل';
+            window.showCustomAlert("تم تأكيد تحويل المستحقات وإغلاق الطلب بنجاح.", "تم التحويل");
+            refreshAdminData();
+        };
+
+        function initLiveMap() {
+            const mapContainer = document.getElementById('adminLiveMap');
+            if (!mapContainer) return;
+            if (window.mapInstance) {
+                window.mapInstance.remove();
+            }
+            window.mapInstance = L.map('adminLiveMap').setView([30.0444, 31.2357], 12);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; سفيرا لوجستيك'
+            }).addTo(window.mapInstance);
+
+            window.dbState.delegates.forEach(d => {
+                L.marker([d.lat, d.lng]).addTo(window.mapInstance)
+                    .bindPopup(`<b>${d.name}</b><br>منطقة: ${d.area}<br>الهاتف: ${d.phone}`);
+            });
+        }
+
+        function initAnalyticsChart() {
+            const ctx = document.getElementById('adminProfitLossChart');
+            if (!ctx) return;
+            if (window.profitChartInstance) window.profitChartInstance.destroy();
+
+            window.profitChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['السبت', 'الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'],
+                    datasets: [{
+                        label: 'صافي أرباح الشحن (ج.م)',
+                        data: [1200, 1900, 1500, 2200, 3100, 2800, 3500],
+                        backgroundColor: '#eab308',
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#f8fafc' } } },
+                    scales: {
+                        y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+                        x: { ticks: { color: '#94a3b8' }, grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        window.exportToExcel = function() {
+            const ws = XLSX.utils.json_to_sheet(window.dbState.orders);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "الشحنات");
+            XLSX.writeFile(wb, "Safira_Logistics_Orders.xlsx");
+        };
+
+        window.printWaybill = function(orderId) {
+            const o = window.dbState.orders.find(item => item.id === orderId);
+            if (!o) return;
+            const merch = window.dbState.merchants.find(m => m.id === o.merchantId);
+            const del = window.dbState.delegates.find(d => d.id === o.delegateId);
+
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html lang="ar" dir="rtl">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>بوليصة شحن - ${o.id}</title>
+                    <style>
+                        body { font-family: 'Cairo', Arial, sans-serif; padding: 20px; color: #000; direction: rtl; }
+                        .waybill-box { border: 2px dashed #333; padding: 20px; max-width: 600px; margin: 0 auto; border-radius: 12px; }
+                        .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px; }
+                        .header h2 { margin: 0; color: #1e293b; }
+                        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+                        .row { margin-bottom: 8px; font-size: 14px; }
+                        .label { font-weight: bold; color: #555; }
+                        .footer { text-align: center; margin-top: 20px; font-size: 12px; border-top: 1px solid #ccc; padding-top: 10px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="waybill-box">
+                        <div class="header">
+                            <h2>سفيرا لوجستيك - Safira Logistics</h2>
+                            <p style="margin: 5px 0 0 0; font-size: 12px;">بوليصة شحن وتوصيل الطرود الرسمية</p>
+                        </div>
+                        <div class="grid">
+                            <div class="row"><span class="label">رقم الشحنة:</span> ${o.id}</div>
+                            <div class="row"><span class="label">رقم البوليصة:</span> ${o.policyNo}</div>
+                            <div class="row"><span class="label">التاجر / المتجر:</span> ${merch ? merch.name : o.merchantId}</div>
+                            <div class="row"><span class="label">تاريخ الإصدار:</span> ${new Date().toLocaleDateString('ar-EG')}</div>
+                        </div>
+                        <hr style="border:0; border-top:1px solid #ddd; margin: 15px 0;">
+                        <div class="row"><span class="label">اسم العميل:</span> ${o.customerName}</div>
+                        <div class="row"><span class="label">رقم الهاتف:</span> ${o.customerPhone}</div>
+                        <div class="row"><span class="label">عنوان التوصيل:</span> ${o.governorate} - ${o.address}</div>
+                        <div class="row"><span class="label">نوع الدفع:</span> ${o.paymentType}</div>
+                        <div class="grid" style="margin-top: 15px; background: #f8fafc; padding: 10px; border-radius: 8px;">
+                            <div class="row"><span class="label">إجمالي المبلغ المطلوب:</span> <strong style="font-size: 16px;">${o.amount} ج.م</strong></div>
+                            <div class="row"><span class="label">تكلفة الشحن:</span> ${o.shippingCost} ج.م</div>
+                        </div>
+                        <div class="row" style="margin-top: 10px;"><span class="label">المندوب المسند:</span> ${del ? del.name : 'قيد التعيين'}</div>
+                        <div class="footer">
+                            <p>شكراً لتعاملكم مع سفيرا لوجستيك | خدمة العملاء: 01000000000</p>
+                        </div>
+                    </div>
+                    <script>
+                        window.onload = function() { window.print(); };
+                    </script>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+        };
+
+        window.onload = function() {
+            setTimeout(() => {
+                const badge = document.getElementById('syncStatusBadge');
+                if(badge) {
+                    badge.classList.remove('hidden');
+                    badge.classList.add('flex');
+                }
+            }, 1000);
+            window.renderPortal();
+        };
+    </script>
 </body>
 </html>
