@@ -105,7 +105,12 @@
                 <div onclick="window.openAdminPasswordModal()" class="glass-panel p-6 rounded-3xl border border-gold-500/30 space-y-4 hover:border-gold-500/60 transition group cursor-pointer shadow-xl">
                     <div class="w-14 h-14 rounded-2xl gold-gradient-bg text-black flex items-center justify-center text-2xl shadow-xl group-hover:scale-110 transition">
                         <i class="fa-solid fa-user-shield"></i>
-                    </div>
+                    </div>window.openAdminPasswordModal= function() {
+    const modal = document.getElementById('adminModal'); // تأكد أن 'adminModal' هو الـ ID الصحيح لنافذة الباسورد لديك
+    if (modal) {
+        modal.classList.remove('hidden'); 
+    }
+};
                     <div>
                         <h3 class="text-xl font-black text-white mb-1">الإدارة المركزية</h3>
                         <p class="text-xs text-gray-400 leading-relaxed">تحكم كامل، شحنات فورية، وتعديل أسعار الشحن.</p>
