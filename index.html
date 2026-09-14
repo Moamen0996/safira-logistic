@@ -1225,8 +1225,8 @@
             db.orders.unshift(newOrd);
             saveSyncData();
             window.closeOrderModal();
-            if(currentSession && currentSession.role === 'admin') renderAdminDashboard();
-            if(currentSession && currentSession.role ===, currentSession.role === 'merchant') renderMerchantDashboard();
+          if(currentSession && currentSession.role === 'admin') renderAdminDashboard();
+            if(currentSession && currentSession.role === 'merchant') renderMerchantDashboard();
 
             const whatsappText = encodeURIComponent(`مرحباً بك يا ${newOrd.customerName} 📦\nيسعدنا في "سفيرا لوجستيك" إعلامك بأنه تم تأكيد شحنتك رقم (${newOrd.policyNo}) بمبلغ ${newOrd.amount} ج.م.\nسيتم توصيل الشحنة إليك خلال يومين إلى 5 أيام عمل.\nشكراً لثقتكم بنا!`);
             window.open(`https://wa.me/2${newOrd.customerPhone}?text=${whatsappText}`, '_blank');
