@@ -1284,109 +1284,67 @@
             saveSyncData();
             window.showAlertModal('طلب صرف المستحقات', 'تم إرسال طلب صرف المستحقات بنجاح للإدارة المركزية.');
         };
-        // ==========================================
+     // ==========================================
 // ربط لوحة تحكم سفيرا لوجستيك بالسحابة (MongoDB & Railway)
 // ==========================================
 
-// 1. رابط خادمك على Railway (قم باستبداله بالرابط الحقيقي الخاص بك إذا تغير)
-const RAILWAY_API_URL = 'https://safira-logistic-production.up.railway.app';
-
-// 2. دالة إرسال الشحنة الجديدة إلى قاعدة البيانات السحابية
+// دالة إرسال الشحنة الجديدة إلى السحابة (مطابقة لـ server.js)
 async function handleOrderSubmit(event) {
-    if (event) event.preventDefault(); // منع إعادة تحميل الصفحة إذا تم استدعاؤها من نموذج
+    if (event) event.preventDefault(); // منع إعادة تحميل الصفحة
 
-    // جمع بيانات الشحنة من الحقول الموجودة في صفحتك
     const orderData = {
-        trackingNumber: document.getElementById('trackingInput') ? document.getElementById('trackingInput').value : '',
-        merchantName: document.getElementById('merchantWelcomeName') ? document.getElementById('merchantWelcomeName').innerText : 'متجر',
-        customerName: document.getElementById('customerNameInput') ? document.getElementById('customerNameInput').value : '',
-        customerPhone: document.getElementById('customerPhoneInput') ? document.getElementById('customerPhoneInput').value : '',
-        createdAt: new Date()
+        trackingNumber: document.getElementById('trackingInput') ? document.getElementById('trackingInput').value : 'TRK-' + Date.now(),
+        senderName: document.getElementById('senderNameInput') ? document.getElementById('senderNameInput').value : 'تاجر',
+        receiverName: document.getElementById('customerNameInput') ? document.getElementById('customerNameInput').value : 'عميل',
+        destination: document.getElementById('destinationInput') ? document.getElementById('destinationInput').value : 'المحافظة/الوجهة',
+        status: 'قيد المعالجة'
     };
 
     try {
-        const response = await fetch(`${RAILWAY_API_URL}/api/orders`, {
+        const response = await fetch('/api/shipments', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(orderData)
         });
 
         const result = await response.json();
         if (response.ok) {
-            alert('تم حفظ الشحنة بنجاح وسوف تظهر للجميع فوراً!');
+            alert('✅ تم حفظ الشحنة سحابياً بنجاح وستظهر لدى الجميع فوراً!');
             
-            // إغلاق النافذة المنبثقة إن وجدت دالة الإغلاق في مشروعك
             if (typeof window.closeOrderModal === 'function') {
                 window.closeOrderModal();
             }
             
-            // تحديث الجدول لجلب أحدث الشحنات
-            fetchLatestOrdersFromCloud(); 
+            fetchLatestOrdersFromCloud();
         } else {
-            alert('خطأ أثناء الحفظ: ' + (result.message || 'يرجى المحاولة لاحقاً'));
-        }
-    } catch (error) {
-        console.error('خطأ في الاتصال بالخادم:', error);
-        alert('فشل الاتصال بالخادم السحابي، تأكد من اتصال الإنترنت.');
-    }
-}
-
-// 3. دالة جلب الشحنات المُحدثة من السحابة وعرضها في الجداول
-async function fetchLatestOrdersFromCloud() {
-    try {
-        const response = await fetch(`${RAILWAY_API_URL}/api/orders`);
-        if (!response.ok) return;
-        
-        const orders = await response.json();
-        
-        // إذا كانت لديك مسبقاً دالة في مشروعك تعرض البيانات، قم بتمرير الأوامر لها
-        // مثل: if (typeof window.renderOrdersTable === 'function') { window.renderOrdersTable(orders); }
-        console.log('تم جلب الشحنات بنجاح من السحابة:', orders);
-        
-    } catch (error) {
-        console.error('فشل جلب التحديثات السحابية:', error);
-    }
-}
-
-// 4. دالة طلب صرف المستحقات للتاجر أو المندوب
-window.requestPayout = async function(userType) {
-    try {
-        const nameElement = document.getElementById('merchantWelcomeName');
-        const entityName = nameElement ? nameElement.innerText : 'مستخدم';
-
-        const response = await fetch(`${RAILWAY_API_URL}/api/payouts`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                name: entityName,
-                type: userType,
-                requestDate: new Date(),
-                status: 'قيد المراجعة'
-            })
-        });
-
-        if (response.ok) {
-            alert('تم إرسال طلب صرف المستحقات بنجاح إلى الإدارة.');
-        } else {
-            alert('فشل إرسال طلب الصرف، حاول مرة أخرى.');
+            alert('❌ خطأ: ' + (result.error || 'رقم البوليصة قد يكون مسجلاً مسبقاً'));
         }
     } catch (error) {
         console.error('خطأ في الاتصال:', error);
-        alert('حدث خطأ أثناء الاتصال بالخادم.');
+        alert('فشل الاتصال بالخادم السحابي.');
     }
-};
+}
 
-// 5. تفعيل المزامنة التلقائية وجلب البيانات فور فتح الصفحة
+// دالة جلب الشحنات من السحابة وعرضها لكل الأجهزة
+async function fetchLatestOrdersFromCloud() {
+    try {
+        const response = await fetch('/api/shipments');
+        if (!response.ok) return;
+        
+        const shipments = await response.json();
+        console.log('📦 الشحنات المسترجعة من سحاب MongoDB:', shipments);
+        
+        // ملاحظة: إذا كانت لديك دالة جاهزة في مشروعك لعرض الجدول، يمكنك استدعاؤها هنا وتمرير shipments لها.
+        
+    } catch (error) {
+        console.error('فشل جلب الشحنات:', error);
+    }
+}
+
+// تفعيل المزامنة التلقائية وجلب البيانات فور فتح الصفحة وكل 10 ثوانٍ
 window.addEventListener('DOMContentLoaded', () => {
     fetchLatestOrdersFromCloud();
-    
-    // تحديث البيانات تلقائياً على الشاشة كل 10 ثوانٍ لضمان المزامنة الحية بين الأجهزة
     setInterval(fetchLatestOrdersFromCloud, 10000);
-});
     </script>
 </body>
 </html>
