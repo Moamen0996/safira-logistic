@@ -1,18 +1,19 @@
 {
-"name": "safira-logistic",
-"version": "1.0.0",
-"description": "Safira Logistic Shipping Management Web App",
-"main": "server.js",
- "scripts": {
+  "name": "safira-logistic",
+  "version": "1.0.0",
+  "description": "Safira Logistic Shipping Management Web App",
+  "main": "server.js",
+  "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"  // ✅ للتطوير
+    "dev": "nodemon server.js"
+  },
   "dependencies": {
     "express": "^4.19.2",
     "mongoose": "^8.0.0",
-    "dotenv": "^16.0.3",      // ✅ متغيرات البيئة
-    "cors": "^2.8.5"          // ✅ معالجة requests
+    "dotenv": "^16.0.3",
+    "cors": "^2.8.5"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"       // ✅ إعادة تحميل تلقائية
+    "nodemon": "^3.0.1"
   }
 }
