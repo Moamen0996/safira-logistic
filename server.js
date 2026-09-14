@@ -17,13 +17,21 @@ const PORT = process.env.PORT || 8080;
 const MONGO_URI = process.env.MONGO_URI;
 app.get('/admin', (req, res) => {
   res.sendFile(__dirname + '/public/admin.html'); // أو المسار الصحيح لصفحة الأدمن عندك
-});
+// التأكد من وجود رابط قاعدة البيانات قبل الاتصال
+if (!MONGO_URI) {
+    console.error("❌ خطأ: متغير MONGO_URI مفقود في متغيرات البيئة على Railway!");
+}
+
 mongoose.connect(MONGO_URI)
   .then(() => {
-    console.log('Connected to MongoDB Atlas successfully');
+    console.log('✅ Connected to MongoDB Atlas successfully');
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
+  })
+  .catch(err => {
+    console.error('❌ Database connection error:', err);
+  });
   })
   .catch((err) => {
     console.error('Database connection error:', err);
