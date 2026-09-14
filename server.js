@@ -21,6 +21,10 @@ app.get('/admin', (req, res) => {
 if (!MONGO_URI) {
     console.error("❌ خطأ: متغير MONGO_URI مفقود في متغيرات البيئة على Railway!");
 }
+/ الاتصال بقاعدة البيانات MongoDB Atlas وتشغيل السيرفر
+if (!MONGO_URI) {
+    console.error("❌ خطأ: متغير MONGO_URI مفقود في متغيرات البيئة على Railway!");
+}
 
 mongoose.connect(MONGO_URI)
   .then(() => {
@@ -29,7 +33,7 @@ mongoose.connect(MONGO_URI)
       console.log(`Server is running on port ${PORT}`);
     });
   })
-  .catch(err => {
+  .catch((err) => {
     console.error('❌ Database connection error:', err);
   });
   })
