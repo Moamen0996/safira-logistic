@@ -15,7 +15,9 @@ app.get('/', (req, res) => {
 // الاتصال بقاعدة البيانات MongoDB Atlas
 const PORT = process.env.PORT || 8080;
 const MONGO_URI = process.env.MONGO_URI;
-
+app.get('/admin', (req, res) => {
+  res.sendFile(__dirname + '/public/admin.html'); // أو المسار الصحيح لصفحة الأدمن عندك
+});
 mongoose.connect(MONGO_URI)
   .then(() => {
     console.log('Connected to MongoDB Atlas successfully');
@@ -26,3 +28,6 @@ mongoose.connect(MONGO_URI)
   .catch((err) => {
     console.error('Database connection error:', err);
   });
+app.get('/admin', (req, res) => {
+  res.sendFile(__dirname + '/public/admin.html'); // أو المسار الصحيح لصفحة الأدمن عندك
+});
