@@ -1,369 +1,1284 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>سفيرا لوجستيك - النظام اللوجستي المتقدم</title>
-<!-- PWA Meta Tags for App Store / Mobile Readiness -->
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Safira Logistics">
-<meta name="theme-color" content="#030712">
-<!-- Tailwind CSS & FontAwesome -->
-<script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<!-- Leaflet Map CSS & JS -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-tailwind.config = {
-theme: {
-extend: {
-colors: {
-darkbg: { 900: '#111827', 950: '#030712' },
-gold: { 400: '#fbbf24', 500: '#f59e0b', 600: '#d97706' }
-}
-}
-}
-};
-</script>
-<style>
-.glass-panel {
-background: rgba(17, 24, 39, 0.85);
-backdrop-filter: blur(14px);
-}
-.gold-gradient-bg {
-background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
-}
-.gold-gradient-text {
-background: linear-gradient(135deg, #f59e0b 0%, #fde047 100%);
--webkit-background-clip: text;
--webkit-text-fill-color: transparent;
-}
-@media print {
-body * { visibility: hidden; }
-#printableWaybill, #printableWaybill * { visibility: visible; }
-#printableWaybill { position: absolute; left: 0; top: 0; width: 100%; background: white; color: black; }
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>سفيرا لوجستيك - النظام اللوجستي السحابي المتقدم</title>
+    
+    <!-- PWA & Enterprise Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Safira Logistics">
+    <meta name="theme-color" content="#030712">
+    
+    <!-- Tailwind CSS & FontAwesome -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Leaflet Map CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: { 900: '#111827', 950: '#030712' },
+                        gold: { 400: '#fbbf24', 500: '#f59e0b', 600: '#d97706' }
+                    }
+                }
+            }
+        };
+    </script>
+    <style>
+        .glass-panel {
+            background: rgba(17, 24, 39, 0.88);
+            backdrop-filter: blur(16px);
+        }
+        .gold-gradient-bg {
+            background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
+        }
+        .gold-gradient-text {
+            background: linear-gradient(135deg, #f59e0b 0%, #fde047 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        /* تعديل الطباعة لضمان ظهور البوليصة وعدم كونها فارغة */
+        @media print {
+            body * { visibility: hidden !important; }
+            #printableWaybill, #printableWaybill * { visibility: visible !important; }
+            #printableWaybill { 
+                position: absolute !important; 
+                left: 0 !important; 
+                top: 0 !important; 
+                width: 100% !important; 
+                display: block !important;
+                background: white !important; 
+                color: black !important; 
+                z-index: 999999 !important;
+            }
+        }
+    </style>
 </head>
 <body class="min-h-screen flex flex-col bg-darkbg-950 text-slate-100 selection:bg-gold-500 selection:text-black font-sans antialiased">
-<header class="glass-panel sticky top-0 z-50 border-b border-gold-500/20 px-4 lg:px-8 py-3.5 flex items-center justify-between">
-<div class="flex items-center gap-3">
-<div class="w-10 h-10 rounded-2xl gold-gradient-bg text-black flex items-center justify-center font-black text-xl shadow-lg">
-<i class="fa-solid fa-cube"></i>
-</div>
-<div>
-<h1 class="text-base font-black gold-gradient-text tracking-wide">سفيرا لوجستيك</h1>
-<span class="text-[10px] text-gray-400 block font-bold">Safira Logistics Ultimate OS</span>
-</div>
-</div>
-<div class="flex items-center gap-3">
-<div id="syncStatusBadge" class="hidden items-center gap-1.5 bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 px-3 py-1 rounded-xl text-xs">
-<i class="fa-solid fa-cloud text-[10px] animate-pulse"></i> <span>متصل سحابياً</span>
-</div>
-<div id="currentUserBadge" class="hidden items-center gap-2 bg-darkbg-900 border border-gold-500/40 px-3 py-1.5 rounded-xl text-xs">
-<i class="fa-solid fa-user-shield text-gold-400"></i>
-<div>
-<span id="currentUserName" class="text-gold-400 font-bold block">--</span>
-<span id="currentUserRoleTag" class="text-[10px] text-gray-400">--</span>
-</div>
-</div>
-<button type="button" id="btnLogoutNav" onclick="window.logoutApp()" class="hidden px-3 py-1.5 rounded-xl bg-rose-950/80 border border-rose-800/50 text-rose-300 font-bold text-xs hover:bg-rose-900 transition flex items-center gap-1.5 cursor-pointer">
-<i class="fa-solid fa-right-from-bracket"></i> خروج
-</button>
-</div>
-</header>
-<main class="flex-grow p-4 lg:p-8 max-w-7xl mx-auto w-full space-y-6">
-<div id="viewPortal" class="space-y-8 py-6">
-<div class="text-center max-w-2xl mx-auto space-y-3">
-<span class="bg-gold-500/20 text-gold-400 border border-gold-500/30 px-3 py-1 rounded-full text-xs font-bold inline-block">بوابة الخدمات اللوجستية المعتمدة (App Store Ready)</span>
-<h2 class="text-3xl lg:text-4xl font-black gold-gradient-text">اختر دورك الوظيفي للبدء</h2>
-<p class="text-sm text-gray-400">نظام متكامل لشحنات التجارة الإلكترونية، تتبع GPS تلقائي، طباعة بوليصات، واتساب فوري، وحماية أمنية مشددة.</p>
-</div>
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
-<!-- Admin Card -->
-<div onclick="window.openAdminPasswordModal()" class="glass-panel p-6 rounded-3xl border border-gold-500/30 space-y-4 hover:border-gold-500/60 transition group cursor-pointer">
-<div class="w-14 h-14 rounded-2xl gold-gradient-bg text-black flex items-center justify-center text-2xl shadow-xl group-hover:scale-110 transition">
-<i class="fa-solid fa-user-shield"></i>
-</div>
-<div>
-<h3 class="text-xl font-black text-white mb-1">الإدارة المركزية</h3>
-<p class="text-xs text-gray-400 leading-relaxed">تحكم كامل، شحنات فورية، تعديل أسعار الشحن، وإدارة الحسابات (يتطلب كلمة المرور الخاصة).</p>
-</div>
-<button type="button" class="w-full py-2.5 rounded-xl gold-gradient-bg text-black font-extrabold text-xs shadow hover:brightness-110 transition pointer-events-none">
-دخول الإدارة الآمن <i class="fa-solid fa-arrow-left mr-1"></i>
-</button>
-</div>
-<!-- Delegate Card -->
-<div class="glass-panel p-6 rounded-3xl border border-amber-500/30 space-y-4 hover:border-amber-500/60 transition group">
-<div class="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-300 flex items-center justify-center text-2xl shadow-xl group-hover:scale-110 transition">
-<i class="fa-solid fa-motorcycle"></i>
-</div>
-<div>
-<h3 class="text-xl font-black text-white mb-1">مندوب التوصيل</h3>
-<p class="text-xs text-gray-400 leading-relaxed">تحديث حالة الشحنة لمرة واحدة، تتبع GPS تلقائي، واتساب للعملاء، وطباعة بوليصة.</p>
-</div>
-<div class="space-y-2 pt-2">
-<input type="text" id="loginDelegateCode" placeholder="كود المندوب (مثال: DEL-101)" class="w-full bg-darkbg-900 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white focus:border-amber-400 focus:outline-none">
-<button type="button" onclick="window.loginDelegatePortal()" class="w-full py-2.5 rounded-xl bg-amber-500 text-black font-extrabold text-xs shadow hover:bg-amber-400 transition cursor-pointer">
-دخول المندوب الفوري <i class="fa-solid fa-arrow-left mr-1"></i>
-</button>
-</div>
-</div>
-<!-- Merchant Card -->
-<div class="glass-panel p-6 rounded-3xl border border-emerald-500/30 space-y-4 hover:border-emerald-500/60 transition group">
-<div class="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 flex items-center justify-center text-2xl shadow-xl group-hover:scale-110 transition">
-<i class="fa-solid fa-store"></i>
-</div>
-<div>
-<h3 class="text-xl font-black text-white mb-1">التاجر / المتجر</h3>
-<p class="text-xs text-gray-400 leading-relaxed">إضافة شحنات فورية، طباعة البوليصات، واتساب ترحيب بالعملاء، ومتابعة الأرباح.</p>
-</div>
-<div class="space-y-2 pt-2">
-<input type="text" id="loginMerchantCode" placeholder="كود التاجر (مثال: MER-201)" class="w-full bg-darkbg-900 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white focus:border-emerald-400 focus:outline-none">
-<button type="button" onclick="window.loginMerchantPortal()" class="w-full py-2.5 rounded-xl bg-emerald-500 text-black font-extrabold text-xs shadow hover:bg-emerald-400 transition cursor-pointer">
-دخول التاجر <i class="fa-solid fa-arrow-left mr-1"></i>
-</button>
-</div>
-</div>
-</div>
-</div>
-<div id="viewAdmin" class="hidden space-y-6">
-<div class="grid grid-cols-2 md:grid-cols-6 gap-4">
-<div class="glass-panel p-4 rounded-2xl border border-gold-500/30">
-<span class="text-xs text-gray-400 block font-bold">إجمالي الشحنات</span>
-<strong id="statTotalOrders" class="text-2xl font-black text-white">0</strong>
-</div>
-<div class="glass-panel p-4 rounded-2xl border border-gold-500/30">
-<span class="text-xs text-gray-400 block font-bold">قيد التوصيل</span>
-<strong id="statPendingOrders" class="text-2xl font-black text-amber-400">0</strong>
-</div>
-<div class="glass-panel p-4 rounded-2xl border border-gold-500/30">
-<span class="text-xs text-gray-400 block font-bold">تم التسليم</span>
-<strong id="statDeliveredOrders" class="text-2xl font-black text-emerald-400">0</strong>
-</div>
-<div class="glass-panel p-4 rounded-2xl border border-gold-500/30">
-<span class="text-xs text-gray-400 block font-bold">مرتجع / مرفوض</span>
-<strong id="statReturnedOrders" class="text-2xl font-black text-rose-400">0</strong>
-</div>
-<div class="glass-panel p-4 rounded-2xl border border-gold-500/30">
-<span class="text-xs text-gray-400 block font-bold">إجمالي المبالغ</span>
-<strong id="statTotalAmount" class="text-lg font-black text-gold-400">0 ج.م</strong>
-</div>
-<div class="glass-panel p-4 rounded-2xl border border-gold-500/30">
-<span class="text-xs text-gray-400 block font-bold">صافي أرباح الشركة</span>
-<strong id="statNetProfit" class="text-lg font-black text-emerald-400">0 ج.م</strong>
-</div>
-</div>
-<!-- Admin Nav Tabs -->
-<div class="flex items-center gap-2 overflow-x-auto pb-2">
-<button type="button" id="adminTabBtnOrders" onclick="window.switchAdminTab('orders')" class="px-4 py-2.5 rounded-xl font-bold text-sm bg-gold-500/20 text-gold-400 border border-gold-500/40 flex items-center gap-2 whitespace-nowrap cursor-pointer">
-<i class="fa-solid fa-boxes-stacked"></i> إدارة الشحنات
-</button>
-<button type="button" id="adminTabBtnInstant" onclick="window.switchAdminTab('instant')" class="px-4 py-2.5 rounded-xl font-bold text-sm bg-gray-900 text-gray-400 border border-gray-800 flex items-center gap-2 whitespace-nowrap hover:text-white cursor-pointer">
-<i class="fa-solid fa-bolt text-amber-400"></i> شحنة فورية وتعديل أسعار الشحن
-</button>
-<button type="button" id="adminTabBtnDelegates" onclick="window.switchAdminTab('delegates')" class="px-4 py-2.5 rounded-xl font-bold text-sm bg-gray-900 text-gray-400 border border-gray-800 flex items-center gap-2 whitespace-nowrap hover:text-white cursor-pointer">
-<i class="fa-solid fa-motorcycle"></i> المناديب والـ GPS
-</button>
-<button type="button" id="adminTabBtnMerchants" onclick="window.switchAdminTab('merchants')" class="px-4 py-2.5 rounded-xl font-bold text-sm bg-gray-900 text-gray-400 border border-gray-800 flex items-center gap-2 whitespace-nowrap hover:text-white cursor-pointer">
-<i class="fa-solid fa-store"></i> التجار
-</button>
-<button type="button" id="adminTabBtnAccounts" onclick="window.switchAdminTab('accounts')" class="px-4 py-2.5 rounded-xl font-bold text-sm bg-gray-900 text-gray-400 border border-gray-800 flex items-center gap-2 whitespace-nowrap hover:text-white cursor-pointer">
-<i class="fa-solid fa-wallet"></i> المستحقات المالية
-</button>
-</div>
-<!-- Admin Tab: Orders -->
-<div id="adminTabOrdersSection" class="glass-panel p-6 rounded-3xl border border-gold-500/30 space-y-4">
-<div class="flex flex-wrap items-center justify-between gap-4">
-<div class="flex items-center gap-3 flex-wrap">
-<input type="text" id="adminSearchInput" oninput="window.renderAdminOrders()" placeholder="ابحث برقم الشحنة، البوليصة أو الهاتف..." class="bg-darkbg-900 border border-gray-700 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-gold-400 w-72">
-<select id="adminFilterStatus" onchange="window.renderAdminOrders()" class="bg-darkbg-900 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white">
-<option value="">كل الحالات</option>
-<option value="قيد المراجعة">قيد المراجعة (جديد)</option>
-<option value="في المخزن">في المخزن</option>
-<option value="قيد التوصيل">قيد التوصيل</option>
-<option value="تم التسليم">تم التسليم</option>
-<option value="تم الرفض">تم الرفض</option>
-<option value="مرتجع">مرتجع</option>
-</select>
-</div>
-<div class="flex items-center gap-2">
-<button type="button" onclick="window.openOrderModal()" class="px-4 py-2 rounded-xl gold-gradient-bg text-black font-extrabold text-xs hover:brightness-110 shadow flex items-center gap-2 cursor-pointer">
-<i class="fa-solid fa-plus"></i> إضافة شحنة جديدة
-</button>
-</div>
-</div>
-<div class="overflow-x-auto rounded-2xl border border-gray-800">
-<table class="w-full text-right text-xs">
-<thead class="bg-darkbg-900 text-gray-400 font-bold border-b border-gray-800">
-<tr>
-<th class="p-3">رقم الشحنة</th>
-<th class="p-3">البوليصة</th>
-<th class="p-3">التاجر</th>
-<th class="p-3">العميل والهاتف</th>
-<th class="p-3">العنوان</th>
-<th class="p-3">المبلغ والشحن</th>
-<th class="p-3">المندوب</th>
-<th class="p-3">الحالة</th>
-<th class="p-3 text-center">الإجراءات والواتساب وطباعة البوليصة</th>
-</tr>
-</thead>
-<tbody id="adminOrdersTableBody" class="divide-y divide-gray-800 text-gray-200"></tbody>
-</table>
-</div>
-</div>
-<!-- Admin Tab: Instant Order & Pricing Overrides -->
-<div id="adminTabInstantSection" class="hidden glass-panel p-6 rounded-3xl border border-gold-500/30 space-y-6">
-<div class="border-b border-gray-800 pb-4">
-<h3 class="font-extrabold text-gold-400 text-base flex items-center gap-2">
-<i class="fa-solid fa-bolt"></i> إضافة شحنة فورية وتعديل أسعار الشحن المخصصة
-</h3>
-<p class="text-xs text-gray-400 mt-1">تتيح لك هذه الخانة تخصيص سعر شحن خاص لكل تاجر أو مندوب وإضافة شحنة فوريّة بنقرة واحدة.</p>
-</div>
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-<form onsubmit="window.handleInstantOrderSubmit(event)" class="space-y-3 bg-darkbg-900 p-4 rounded-2xl border border-gray-800 text-xs">
-<h4 class="font-bold text-white text-sm mb-2"><i class="fa-solid fa-box text-gold-400 ml-1"></i> إنشاء شحنة فورية سريعة</h4>
-<div>
-<label class="block text-gray-300 font-bold mb-1">التاجر المرسل *</label>
-<select id="instantMerchantId" required class="w-full bg-darkbg-950 border border-gray-700 rounded-xl px-3 py-2 text-white"></select>
-</div>
-<div>
-<label class="block text-gray-300 font-bold mb-1">اسم العميل ورقم الهاتف *</label>
-<div class="grid grid-cols-2 gap-2">
-<input type="text" id="instantCustName" required placeholder="اسم العميل" class="bg-darkbg-950 border border-gray-700 rounded-xl px-3 py-2 text-white">
-<input type="text" id="instantCustPhone" required placeholder="010xxxxxxxx" class="bg-darkbg-950 border border-gray-700 rounded-xl px-3 py-2 text-white">
-</div>
-</div>
-<div>
-<label class="block text-gray-300 font-bold mb-1">العنوان ومبلغ التحصيل (ج.م) *</label>
-<div class="grid grid-cols-2 gap-2">
-<input type="text" id="instantAddress" required placeholder="المحافظة - التفاصيل" class="bg-darkbg-950 border border-gray-700 rounded-xl px-3 py-2 text-white">
-<input type="number" id="instantAmount" required placeholder="المبلغ (مثال: 750)" class="bg-darkbg-950 border border-gray-700 rounded-xl px-3 py-2 text-white">
-</div>
-</div>
-<button type="submit" class="w-full py-2.5 rounded-xl gold-gradient-bg text-black font-extrabold shadow cursor-pointer mt-2">
-<i class="fa-solid fa-plus ml-1"></i> حفظ وإرسال واتساب للعميل فوراً
-</button>
-</form>
-<div class="space-y-4 bg-darkbg-900 p-4 rounded-2xl border border-gray-800 text-xs">
-<h4 class="font-bold text-white text-sm mb-2"><i class="fa-solid fa-sliders text-amber-400 ml-1"></i> تعديل سعر الشحن المخصص (تاجر / مندوب)</h4>
-<div>
-<label class="block text-gray-300 font-bold mb-1">اختر التاجر أو المندوب</label>
-<select id="pricingTargetSelect" class="w-full bg-darkbg-950 border border-gray-700 rounded-xl px-3 py-2 text-white">
-<option value="MER-201">متجر القاهرة الإلكتروني (تاجر)</option>
-<option value="DEL-101">أحمد محمود (مندوب)</option>
-</select>
-</div>
-<div>
-<label class="block text-gray-300 font-bold mb-1">سعر الشحن الجديد الافتراضي (ج.م) *</label>
-<input type="number" id="newShippingPriceInput" required value="70" class="w-full bg-darkbg-950 border border-gray-700 rounded-xl px-3 py-2 text-white">
-</div>
-<button type="button" onclick="window.saveCustomShippingRate()" class="w-full py-2.5 rounded-xl bg-amber-500 text-black font-extrabold shadow cursor-pointer hover:bg-amber-400">
-<i class="fa-solid fa-lock ml-1"></i> تحديث السعر الآمن
-</button>
-</div>
-</div>
-</div>
-<!-- Admin Tab: Delegates -->
-<div id="adminTabDelegatesSection" class="hidden space-y-6">
-<div class="glass-panel p-6 rounded-3xl border border-gold-500/30 space-y-4">
-<div class="flex justify-between items-center">
-<h3 class="font-extrabold text-gold-400 text-sm">إدارة المناديب وتتبع الـ GPS التلقائي</h3>
-<button type="button" onclick="window.openDelegateModal()" class="px-4 py-2 rounded-xl gold-gradient-bg text-black font-extrabold text-xs shadow cursor-pointer">
-<i class="fa-solid fa-user-plus ml-1"></i> إضافة مندوب جديد
-</button>
-</div>
-<div class="overflow-x-auto rounded-2xl border border-gray-800">
-<table class="w-full text-right text-xs">
-<thead class="bg-darkbg-900 text-gray-400 font-bold border-b border-gray-800">
-<tr>
-<th class="p-3">الكود</th>
-<th class="p-3">اسم المندوب</th>
-<th class="p-3">الهاتف</th>
-<th class="p-3">إحداثيات الـ GPS المحدثة تلقائياً</th>
-<th class="p-3 text-center">الإجراءات الآمنة</th>
-</tr>
-</thead>
-<tbody id="adminDelegatesTableBody" class="divide-y divide-gray-800 text-gray-200"></tbody>
-</table>
-</div>
-</div>
-<div class="glass-panel p-6 rounded-3xl border border-gold-500/30 space-y-4">
-<h3 class="font-extrabold text-gold-400 text-sm flex items-center gap-2">
-<i class="fa-solid fa-map-location-dot"></i> خريطة التتبع اللحظي المباشر للمناديب
-</h3>
-<div id="adminLiveMap" class="w-full h-80 rounded-2xl border border-gray-700 z-10"></div>
-</div>
-</div>
-<!-- Admin Tab: Merchants -->
-<div id="adminTabMerchantsSection" class="hidden glass-panel p-6 rounded-3xl border border-gold-500/30 space-y-4">
-<div class="flex justify-between items-center">
-<h3 class="font-extrabold text-gold-400 text-sm">إدارة التجار</h3>
-<button type="button" onclick="window.openMerchantModal()" class="px-4 py-2 rounded-xl gold-gradient-bg text-black font-extrabold text-xs shadow cursor-pointer">
-<i class="fa-solid fa-store ml-1"></i> إضافة تاجر جديد
-</button>
-</div>
-<div class="overflow-x-auto rounded-2xl border border-gray-800">
-<table class="w-full text-right text-xs">
-<thead class="bg-darkbg-900 text-gray-400 font-bold border-b border-gray-800">
-<tr>
-<th class="p-3">كود التاجر</th>
-<th class="p-3">اسم المتجر</th>
-<th class="p-3">الهاتف</th>
-<th class="p-3">المستحقات</th>
-<th class="p-3 text-center">الإجراءات الأمنية</th>
-</tr>
-</thead>
-<tbody id="adminMerchantsTableBody" class="divide-y divide-gray-800 text-gray-200"></tbody>
-</table>
-</div>
-</div>
-<!-- Admin Tab: Accounts -->
-<div id="adminTabAccountsSection" class="hidden space-y-6">
-<div class="glass-panel p-6 rounded-3xl border border-gold-500/30 space-y-4">
-<h3 class="font-extrabold text-gold-400 text-sm flex items-center gap-2">
-<i class="fa-solid fa-file-invoice-dollar"></i> طلبات صرف المستحقات المالية المعلقة
-</h3>
-<div class="overflow-x-auto rounded-2xl border border-gray-800">
-<table class="w-full text-right text-xs">
-<thead class="bg-darkbg-900 text-gray-400 font-bold border-b border-gray-800">
-<tr>
-<th class="p-3">التاريخ</th>
-<th class="p-3">الصفة</th>
-<th class="p-3">الاسم</th>
-<th class="p-3">المبلغ المطلوب</th>
-<th class="p-3">تفاصيل الحساب</th>
-<th class="p-3">الحالة</th>
-<th class="p-3 text-center">اعتماد الصرف الآمن</th>
-</tr>
-</thead>
-<tbody id="adminPayoutRequestsTableBody" class="divide-y divide-gray-800 text-gray-200"></tbody>
-</table>
-</div>
-</div>
-</div>
-</div>
-<div id="viewDelegate" class="hidden space-y-6">
-<div class="glass-panel p-6 rounded-3xl border border-amber-500/30 space-y-4">
-<div class="flex flex-wrap justify-between items-center gap-4">
-<div>
-<span class="text-xs text-emerald-400 font-bold flex items-center gap-1.5 mb-1">
-<i class="fa-solid fa-location-arrow animate-bounce"></i> تم التقاط موقعك الجغرافي (GPS) تلقائياً بنجاح
-</span>
-<h2 id="delegateWelcomeName" class="text-2xl font-black text-white">مرحباً بك</h2>
-</div>
-<button type="button" onclick="window.requestPayout('delegate')" class="px-4 py-2 rounded-xl bg-amber-500 text-black font-extrabold text-xs shadow hover:bg-amber-400 cursor-pointer">
-<i class="fa-solid fa-wallet ml-1"></i> طلب صرف المستحقات
-</button>
-</div>
-</div>
-<div class="glass-panel p-6 rounded-3xl border border-amber-500/30 space-y-4">
-<h3 class="font-extrabold text-amber-400 text-sm">شحناتك المسندة (يمكنك تعديل حالة التسليم لمرة واحدة فقط لكل شحنة)</h3>
-<div class="overflow-x-auto rounded-2xl border border-gray-800">
-<table class="w-full text-right text-xs">
-<thead class="bg-darkbg-900 text-gray-400 font-bold border-b border-gray-800">
-<tr>
-<th class="p-3">رقم الشحنة</th>
-<th class="p-3">العميل وال
+
+    <header class="glass-panel sticky top-0 z-50 border-b border-gold-500/20 px-4 lg:px-8 py-3.5 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-2xl gold-gradient-bg text-black flex items-center justify-center font-black text-xl shadow-lg">
+                <i class="fa-solid fa-cube"></i>
+            </div>
+            <div>
+                <h1 class="text-base font-black gold-gradient-text tracking-wide">سفيرا لوجستيك</h1>
+                <span class="text-[10px] text-gray-400 block font-bold">MongoDB & Railway Ready OS</span>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <div id="syncStatusBadge" class="hidden items-center gap-1.5 bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 px-3 py-1 rounded-xl text-xs">
+                <i class="fa-solid fa-server text-[10px] animate-pulse"></i> <span>متصل بـ Railway / MongoDB</span>
+            </div>
+            <div id="currentUserBadge" class="hidden items-center gap-2 bg-darkbg-900 border border-gold-500/40 px-3 py-1.5 rounded-xl text-xs">
+                <i class="fa-solid fa-user-shield text-gold-400"></i>
+                <div>
+                    <span id="currentUserName" class="text-gold-400 font-bold block">--</span>
+                    <span id="currentUserRoleTag" class="text-[10px] text-gray-400">--</span>
+                </div>
+            </div>
+            <button type="button" id="btnLogoutNav" onclick="window.logoutApp()" class="hidden px-3 py-1.5 rounded-xl bg-rose-950/80 border border-rose-800/50 text-rose-300 font-bold text-xs hover:bg-rose-900 transition flex items-center gap-1.5 cursor-pointer">
+                <i class="fa-solid fa-right-from-bracket"></i> خروج
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-grow p-4 lg:p-8 max-w-7xl mx-auto w-full space-y-6">
+
+        <!-- Portal View -->
+        <div id="viewPortal" class="space-y-8 py-6">
+            <div class="text-center max-w-2xl mx-auto space-y-3">
+                <h2 class="text-3xl lg:text-4xl font-black gold-gradient-text">welcome to safira logistic</h2>
+                <p class="text-xs text-gray-400">النظام الموحد المتكامل لإدارة الشحنات، المناديب، والتجار بشكل فوري</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+                <!-- Admin Card -->
+                <div onclick="window.openAdminPasswordModal()" class="glass-panel p-6 rounded-3xl border border-gold-500/30 space-y-4 hover:border-gold-500/60 transition group cursor-pointer shadow-xl">
+                    <div class="w-14 h-14 rounded-2xl gold-gradient-bg text-black flex items-center justify-center text-2xl shadow-xl group-hover:scale-110 transition">
+                        <i class="fa-solid fa-user-shield"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-black text-white mb-1">الإدارة المركزية</h3>
+                        <p class="text-xs text-gray-400 leading-relaxed">تحكم كامل، شحنات فورية، وتعديل أسعار الشحن.</p>
+                    </div>
+                    <button type="button" onclick="window.openAdminPasswordModal(); event.stopPropagation();" class="w-full py-2.5 rounded-xl gold-gradient-bg text-black font-extrabold text-xs shadow hover:brightness-110 transition cursor-pointer">
+                        دخول الإدارة الآمن <i class="fa-solid fa-arrow-left mr-1"></i>
+                    </button>
+                </div>
+
+                <!-- Delegate Card -->
+                <div class="glass-panel p-6 rounded-3xl border border-amber-500/30 space-y-4 hover:border-amber-500/60 transition group shadow-xl">
+                    <div class="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-300 flex items-center justify-center text-2xl shadow-xl group-hover:scale-110 transition">
+                        <i class="fa-solid fa-motorcycle"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-black text-white mb-1">مندوب التوصيل</h3>
+                        <p class="text-xs text-gray-400 leading-relaxed">تحديث حالة الشحنة لمرة واحدة، تتبع GPS تلقائي، واتساب للعملاء، وطباعة بوليصة.</p>
+                    </div>
+                    <div class="space-y-2 pt-2" onclick="event.stopPropagation();">
+                        <input type="text" id="loginDelegateCode" placeholder="كود المندوب (مثال: DEL-101)" class="w-full bg-darkbg-900 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white focus:border-amber-400 focus:outline-none">
+                        <button type="button" onclick="window.loginDelegatePortal()" class="w-full py-2.5 rounded-xl bg-amber-500 text-black font-extrabold text-xs shadow hover:bg-amber-400 transition cursor-pointer">
+                            دخول المندوب الفوري <i class="fa-solid fa-arrow-left mr-1"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Merchant Card -->
+                <div class="glass-panel p-6 rounded-3xl border border-emerald-500/30 space-y-4 hover:border-emerald-500/60 transition group shadow-xl">
+                    <div class="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 flex items-center justify-center text-2xl shadow-xl group-hover:scale-110 transition">
+                        <i class="fa-solid fa-store"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-black text-white mb-1">التاجر / المتجر</h3>
+                        <p class="text-xs text-gray-400 leading-relaxed">إضافة شحنات فورية، طباعة البوليصات، واتساب ترحيب بالعملاء، ومتابعة الأرباح.</p>
+                    </div>
+                    <div class="space-y-2 pt-2" onclick="event.stopPropagation();">
+                        <input type="text" id="loginMerchantCode" placeholder="كود التاجر (مثال: MER-201)" class="w-full bg-darkbg-900 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white focus:border-emerald-400 focus:outline-none">
+                        <button type="button" onclick="window.loginMerchantPortal()" class="w-full py-2.5 rounded-xl bg-emerald-500 text-black font-extrabold text-xs shadow hover:bg-emerald-400 transition cursor-pointer">
+                            دخول التاجر <i class="fa-solid fa-arrow-left mr-1"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Dashboard View -->
+        <div id="viewAdmin" class="hidden space-y-6">
+            <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
+                <div class="glass-panel p-4 rounded-2xl border border-gold-500/30">
+                    <span class="text-xs text-gray-400 block font-bold">إجمالي الشحنات</span>
+                    <strong id="statTotalOrders" class="text-2xl font-black text-white">0</strong>
+                </div>
+                <div class="glass-panel p-4 rounded-2xl border border-gold-500/30">
+                    <span class="text-xs text-gray-400 block font-bold">قيد التوصيل</span>
+                    <strong id="statPendingOrders" class="text-2xl font-black text-amber-400">0</strong>
+                </div>
+                <div class="glass-panel p-4 rounded-2xl border border-gold-500/30">
+                    <span class="text-xs text-gray-400 block font-bold">تم التسليم</span>
+                    <strong id="statDeliveredOrders" class="text-2xl font-black text-emerald-400">0</strong>
+                </div>
+                <div class="glass-panel p-4 rounded-2xl border border-gold-500/30">
+                    <span class="text-xs text-gray-400 block font-bold">مرتجع / مرفوض</span>
+                    <strong id="statReturnedOrders" class="text-2xl font-black text-rose-400">0</strong>
+                </div>
+                <div class="glass-panel p-4 rounded-2xl border border-gold-500/30">
+                    <span class="text-xs text-gray-400 block font-bold">إجمالي المبالغ</span>
+                    <strong id="statTotalAmount" class="text-lg font-black text-gold-400">0 ج.م</strong>
+                </div>
+                <div class="glass-panel p-4 rounded-2xl border border-gold-500/30">
+                    <span class="text-xs text-gray-400 block font-bold">صافي أرباح الشركة</span>
+                    <strong id="statNetProfit" class="text-lg font-black text-emerald-400">0 ج.م</strong>
+                </div>
+            </div>
+
+            <!-- Admin Nav Tabs -->
+            <div class="flex items-center gap-2 overflow-x-auto pb-2">
+                <button type="button" id="adminTabBtnOrders" onclick="window.switchAdminTab('orders')" class="px-4 py-2.5 rounded-xl font-bold text-sm bg-gold-500/20 text-gold-400 border border-gold-500/40 flex items-center gap-2 whitespace-nowrap cursor-pointer">
+                    <i class="fa-solid fa-boxes-stacked"></i> إدارة الشحنات
+                </button>
+                <button type="button" id="adminTabBtnInstant" onclick="window.switchAdminTab('instant')" class="px-4 py-2.5 rounded-xl font-bold text-sm bg-gray-900 text-gray-400 border border-gray-800 flex items-center gap-2 whitespace-nowrap hover:text-white cursor-pointer">
+                    <i class="fa-solid fa-bolt text-amber-400"></i> شحنة فورية وتعديل أسعار الشحن
+                </button>
+                <button type="button" id="adminTabBtnDelegates" onclick="window.switchAdminTab('delegates')" class="px-4 py-2.5 rounded-xl font-bold text-sm bg-gray-900 text-gray-400 border border-gray-800 flex items-center gap-2 whitespace-nowrap hover:text-white cursor-pointer">
+                    <i class="fa-solid fa-motorcycle"></i> المناديب والـ GPS
+                </button>
+                <button type="button" id="adminTabBtnMerchants" onclick="window.switchAdminTab('merchants')" class="px-4 py-2.5 rounded-xl font-bold text-sm bg-gray-900 text-gray-400 border border-gray-800 flex items-center gap-2 whitespace-nowrap hover:text-white cursor-pointer">
+                    <i class="fa-solid fa-store"></i> التجار
+                </button>
+                <button type="button" id="adminTabBtnAccounts" onclick="window.switchAdminTab('accounts')" class="px-4 py-2.5 rounded-xl font-bold text-sm bg-gray-900 text-gray-400 border border-gray-800 flex items-center gap-2 whitespace-nowrap hover:text-white cursor-pointer">
+                    <i class="fa-solid fa-wallet"></i> المستحقات المالية
+                </button>
+            </div>
+
+            <!-- Admin Tab: Orders -->
+            <div id="adminTabOrdersSection" class="glass-panel p-6 rounded-3xl border border-gold-500/30 space-y-4">
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex items-center gap-3 flex-wrap">
+                        <input type="text" id="adminSearchInput" oninput="window.renderAdminOrders()" placeholder="ابحث برقم الشحنة، البوليصة أو الهاتف..." class="bg-darkbg-900 border border-gray-700 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-gold-400 w-72">
+                        <select id="adminFilterStatus" onchange="window.renderAdminOrders()" class="bg-darkbg-900 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white">
+                            <option value="">كل الحالات</option>
+                            <option value="قيد المراجعة">قيد المراجعة (جديد)</option>
+                            <option value="في المخزن">في المخزن</option>
+                            <option value="قيد التوصيل">قيد التوصيل</option>
+                            <option value="تم التسليم">تم التسليم</option>
+                            <option value="تم الرفض">تم الرفض</option>
+                            <option value="مرتجع">مرتجع</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="window.openOrderModal()" class="px-4 py-2 rounded-xl gold-gradient-bg text-black font-extrabold text-xs hover:brightness-110 shadow flex items-center gap-2 cursor-pointer">
+                            <i class="fa-solid fa-plus"></i> إضافة شحنة جديدة
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto rounded-2xl border border-gray-800">
+                    <table class="w-full text-right text-xs">
+                        <thead class="bg-darkbg-900 text-gray-400 font-bold border-b border-gray-800">
+                            <tr>
+                                <th class="p-3">رقم الشحنة</th>
+                                <th class="p-3">البوليصة</th>
+                                <th class="p-3">التاجر</th>
+                                <th class="p-3">العميل والهاتف</th>
+                                <th class="p-3">العنوان</th>
+                                <th class="p-3">المبلغ والشحن</th>
+                                <th class="p-3">المندوب</th>
+                                <th class="p-3">الحالة</th>
+                                <th class="p-3 text-center">الإجراءات والواتساب وطباعة البوليصة</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminOrdersTableBody" class="divide-y divide-gray-800 text-gray-200"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Admin Tab: Instant Order & Pricing Overrides -->
+            <div id="adminTabInstantSection" class="hidden glass-panel p-6 rounded-3xl border border-gold-500/30 space-y-6">
+                <div class="border-b border-gray-800 pb-4">
+                    <h3 class="font-extrabold text-gold-400 text-base flex items-center gap-2">
+                        <i class="fa-solid fa-bolt"></i> إضافة شحنة فورية وتعديل أسعار الشحن المخصصة
+                    </h3>
+                    <p class="text-xs text-gray-400 mt-1">تتيح لك هذه الخانة تخصيص سعر شحن خاص لكل تاجر أو مندوب وإضافة شحنة فوريّة بنقرة واحدة.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <form onsubmit="window.handleInstantOrderSubmit(event)" class="space-y-3 bg-darkbg-900 p-4 rounded-2xl border border-gray-800 text-xs">
+                        <h4 class="font-bold text-white text-sm mb-2"><i class="fa-solid fa-box text-gold-400 ml-1"></i> إنشاء شحنة فورية سريعة</h4>
+                        <div>
+                            <label class="block text-gray-300 font-bold mb-1">التاجر المرسل *</label>
+                            <select id="instantMerchantId" required class="w-full bg-darkbg-950 border border-gray-700 rounded-xl px-3 py-2 text-white"></select>
+                        </div>
+                        <div>
+                            <label class="block text-gray-300 font-bold mb-1">اسم العميل ورقم الهاتف *</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <input type="text" id="instantCustName" required placeholder="اسم العميل" class="bg-darkbg-950 border border-gray-700 rounded-xl px-3 py-2 text-white">
+                                <input type="text" id="instantCustPhone" required placeholder="010xxxxxxxx" class="bg-darkbg-950 border border-gray-700 rounded-xl px-3 py-2 text-white">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-gray-300 font-bold mb-1">العنوان ومبلغ التحصيل (ج.م) *</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <input type="text" id="instantAddress" required placeholder="المحافظة - التفاصيل" class="bg-darkbg-950 border border-gray-700 rounded-xl px-3 py-2 text-white">
+                                <input type="number" id="instantAmount" required placeholder="المبلغ (مثال: 750)" class="bg-darkbg-950 border border-gray-700 rounded-xl px-3 py-2 text-white">
+                            </div>
+                        </div>
+                        <button type="submit" class="w-full py-2.5 rounded-xl gold-gradient-bg text-black font-extrabold shadow cursor-pointer mt-2">
+                            <i class="fa-solid fa-plus ml-1"></i> حفظ وإرسال واتساب للعميل فوراً
+                        </button>
+                    </form>
+
+                    <div class="space-y-4 bg-darkbg-900 p-4 rounded-2xl border border-gray-800 text-xs">
+                        <h4 class="font-bold text-white text-sm mb-2"><i class="fa-solid fa-sliders text-amber-400 ml-1"></i> تعديل سعر الشحن المخصص (تاجر / مندوب)</h4>
+                        <div>
+                            <label class="block text-gray-300 font-bold mb-1">اختر التاجر أو المندوب</label>
+                            <select id="pricingTargetSelect" class="w-full bg-darkbg-950 border border-gray-700 rounded-xl px-3 py-2 text-white">
+                                <option value="MER-201">متجر القاهرة الإلكتروني (تاجر)</option>
+                                <option value="DEL-101">أحمد محمود (مندوب)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-gray-300 font-bold mb-1">سعر الشحن الجديد الافتراضي (ج.م) *</label>
+                            <input type="number" id="newShippingPriceInput" required value="70" class="w-full bg-darkbg-950 border border-gray-700 rounded-xl px-3 py-2 text-white">
+                        </div>
+                        <button type="button" onclick="window.saveCustomShippingRate()" class="w-full py-2.5 rounded-xl bg-amber-500 text-black font-extrabold shadow cursor-pointer hover:bg-amber-400">
+                            <i class="fa-solid fa-lock ml-1"></i> تحديث السعر الآمن
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Admin Tab: Delegates -->
+            <div id="adminTabDelegatesSection" class="hidden space-y-6">
+                <div class="glass-panel p-6 rounded-3xl border border-gold-500/30 space-y-4">
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-extrabold text-gold-400 text-sm">إدارة المناديب وتتبع الـ GPS التلقائي</h3>
+                        <button type="button" onclick="window.openDelegateModal()" class="px-4 py-2 rounded-xl gold-gradient-bg text-black font-extrabold text-xs shadow cursor-pointer">
+                            <i class="fa-solid fa-user-plus ml-1"></i> إضافة مندوب جديد
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto rounded-2xl border border-gray-800">
+                        <table class="w-full text-right text-xs">
+                            <thead class="bg-darkbg-900 text-gray-400 font-bold border-b border-gray-800">
+                                <tr>
+                                    <th class="p-3">الكود</th>
+                                    <th class="p-3">اسم المندوب</th>
+                                    <th class="p-3">الهاتف</th>
+                                    <th class="p-3">إحداثيات الـ GPS المحدثة تلقائياً</th>
+                                    <th class="p-3 text-center">الإجراءات الآمنة</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminDelegatesTableBody" class="divide-y divide-gray-800 text-gray-200"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-6 rounded-3xl border border-gold-500/30 space-y-4">
+                    <h3 class="font-extrabold text-gold-400 text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-map-location-dot"></i> خريطة التتبع اللحظي المباشر للمناديب
+                    </h3>
+                    <div id="adminLiveMap" class="w-full h-80 rounded-2xl border border-gray-700 z-10"></div>
+                </div>
+            </div>
+
+            <!-- Admin Tab: Merchants -->
+            <div id="adminTabMerchantsSection" class="hidden glass-panel p-6 rounded-3xl border border-gold-500/30 space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="font-extrabold text-gold-400 text-sm">إدارة التجار</h3>
+                    <button type="button" onclick="window.openMerchantModal()" class="px-4 py-2 rounded-xl gold-gradient-bg text-black font-extrabold text-xs shadow cursor-pointer">
+                        <i class="fa-solid fa-store ml-1"></i> إضافة تاجر جديد
+                    </button>
+                </div>
+                <div class="overflow-x-auto rounded-2xl border border-gray-800">
+                    <table class="w-full text-right text-xs">
+                        <thead class="bg-darkbg-900 text-gray-400 font-bold border-b border-gray-800">
+                            <tr>
+                                <th class="p-3">كود التاجر</th>
+                                <th class="p-3">اسم المتجر</th>
+                                <th class="p-3">الهاتف</th>
+                                <th class="p-3">المستحقات</th>
+                                <th class="p-3 text-center">الإجراءات الأمنية</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminMerchantsTableBody" class="divide-y divide-gray-800 text-gray-200"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Admin Tab: Accounts -->
+            <div id="adminTabAccountsSection" class="hidden space-y-6">
+                <div class="glass-panel p-6 rounded-3xl border border-gold-500/30 space-y-4">
+                    <h3 class="font-extrabold text-gold-400 text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-file-invoice-dollar"></i> طلبات صرف المستحقات المالية المعلقة
+                    </h3>
+                    <div class="overflow-x-auto rounded-2xl border border-gray-800">
+                        <table class="w-full text-right text-xs">
+                            <thead class="bg-darkbg-900 text-gray-400 font-bold border-b border-gray-800">
+                                <tr>
+                                    <th class="p-3">التاريخ</th>
+                                    <th class="p-3">الصفة</th>
+                                    <th class="p-3">الاسم</th>
+                                    <th class="p-3">المبلغ المطلوب</th>
+                                    <th class="p-3">تفاصيل الحساب</th>
+                                    <th class="p-3">الحالة</th>
+                                    <th class="p-3 text-center">اعتماد الصرف الآمن</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminPayoutRequestsTableBody" class="divide-y divide-gray-800 text-gray-200"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Delegate Portal View -->
+        <div id="viewDelegate" class="hidden space-y-6">
+            <div class="glass-panel p-6 rounded-3xl border border-amber-500/30 space-y-4">
+                <div class="flex flex-wrap justify-between items-center gap-4">
+                    <div>
+                        <span class="text-xs text-emerald-400 font-bold flex items-center gap-1.5 mb-1">
+                            <i class="fa-solid fa-location-arrow animate-bounce"></i> تم التقاط موقعك الجغرافي (GPS) تلقائياً بنجاح
+                        </span>
+                        <h2 id="delegateWelcomeName" class="text-2xl font-black text-white">مرحباً بك</h2>
+                    </div>
+                    <button type="button" onclick="window.requestPayout('delegate')" class="px-4 py-2 rounded-xl bg-amber-500 text-black font-extrabold text-xs shadow hover:bg-amber-400 cursor-pointer">
+                        <i class="fa-solid fa-wallet ml-1"></i> طلب صرف المستحقات
+                    </button>
+                </div>
+            </div>
+
+            <div class="glass-panel p-6 rounded-3xl border border-amber-500/30 space-y-4">
+                <h3 class="font-extrabold text-amber-400 text-sm">شحناتك المسندة (يمكنك تعديل حالة التسليم لمرة واحدة فقط لكل شحنة)</h3>
+                <div class="overflow-x-auto rounded-2xl border border-gray-800">
+                    <table class="w-full text-right text-xs">
+                        <thead class="bg-darkbg-900 text-gray-400 font-bold border-b border-gray-800">
+                            <tr>
+                                <th class="p-3">رقم الشحنة</th>
+                                <th class="p-3">العميل والهاتف</th>
+                                <th class="p-3">العنوان</th>
+                                <th class="p-3">المبلغ المطلوب</th>
+                                <th class="p-3">الحالة الحالية</th>
+                                <th class="p-3 text-center">طباعة البوليصة</th>
+                                <th class="p-3 text-center">تحديث حالة التوصيل (مرة واحدة)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="delegateOrdersTableBody" class="divide-y divide-gray-800 text-gray-200"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Merchant Portal View -->
+        <div id="viewMerchant" class="hidden space-y-6">
+            <div class="glass-panel p-6 rounded-3xl border border-emerald-500/30 space-y-4">
+                <div class="flex flex-wrap justify-between items-center gap-4">
+                    <div>
+                        <span class="text-xs text-emerald-400 font-bold">لوحة تحكم التاجر</span>
+                        <h2 id="merchantWelcomeName" class="text-2xl font-black text-white">متجري</h2>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button type="button" onclick="window.openOrderModal()" class="px-4 py-2 rounded-xl bg-emerald-500 text-black font-extrabold text-xs shadow hover:bg-emerald-400 flex items-center gap-2 cursor-pointer">
+                            <i class="fa-solid fa-plus"></i> إضافة شحنة جديدة مع واتساب فوري
+                        </button>
+                        <button type="button" onclick="window.requestPayout('merchant')" class="px-4 py-2 rounded-xl bg-gold-500 text-black font-extrabold text-xs shadow hover:bg-gold-400 flex items-center gap-2 cursor-pointer">
+                            <i class="fa-solid fa-wallet"></i> طلب صرف المستحقات
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-panel p-6 rounded-3xl border border-emerald-500/30 space-y-4">
+                <h3 class="font-extrabold text-emerald-400 text-sm">شحنات متجرك وبوليصات الشحن</h3>
+                <div class="overflow-x-auto rounded-2xl border border-gray-800">
+                    <table class="w-full text-right text-xs">
+                        <thead class="bg-darkbg-900 text-gray-400 font-bold border-b border-gray-800">
+                            <tr>
+                                <th class="p-3">رقم الشحنة</th>
+                                <th class="p-3">البوليصة</th>
+                                <th class="p-3">العميل والهاتف</th>
+                                <th class="p-3">العنوان</th>
+                                <th class="p-3">المبلغ والشحن</th>
+                                <th class="p-3">الحالة</th>
+                                <th class="p-3 text-center">طباعة البوليصة</th>
+                                <th class="p-3 text-center">واتساب العميل</th>
+                            </tr>
+                        </thead>
+                        <tbody id="merchantOrdersTableBody" class="divide-y divide-gray-800 text-gray-200"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Secure Password Modal (Admin Entry Password: safira2026 - Hidden Type & No Guiding Texts) -->
+    <div id="securePasswordModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="glass-panel p-6 rounded-3xl border border-gold-500/40 w-full max-w-sm space-y-4 shadow-2xl text-center">
+            <div class="w-12 h-12 rounded-2xl bg-gold-500/20 text-gold-400 flex items-center justify-center mx-auto text-xl">
+                <i class="fa-solid fa-shield-halved"></i>
+            </div>
+            <h3 class="text-base font-black text-white">التحقق الأمني للإدارة</h3>
+            <p class="text-xs text-gray-300 leading-relaxed">أدخل كلمة المرور:</p>
+            
+            <!-- تم جعل نوع الحقل password ليصبح مخفياً تماماً بدون أي إرشاد أو توجيه -->
+            <input type="password" id="secureSecretInput" autocomplete="current-password" placeholder="••••••••••••" class="w-full bg-darkbg-900 border border-gold-500/60 rounded-xl px-4 py-3 text-sm text-center text-white focus:outline-none focus:border-gold-400 font-bold tracking-wider">
+            
+            <div class="pt-2 flex justify-center gap-2">
+                <button type="button" onclick="window.closeSecureModal()" class="px-4 py-2 rounded-xl bg-gray-800 text-gray-300 font-bold text-xs cursor-pointer">إلغاء</button>
+                <button type="button" onclick="window.verifyAdminPasswordNow()" class="px-6 py-2 rounded-xl gold-gradient-bg text-black font-extrabold text-xs shadow cursor-pointer">دخول لوحة الإدارة</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert Modal -->
+    <div id="customAlertModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="glass-panel p-6 rounded-3xl border border-gold-500/40 w-full max-w-sm space-y-4 shadow-2xl text-center">
+            <div id="customAlertIcon" class="text-gold-400 text-3xl mb-1"><i class="fa-solid fa-circle-info"></i></div>
+            <h3 id="customAlertTitle" class="text-base font-black text-white">تنبيه النظام</h3>
+            <p id="customAlertMessage" class="text-xs text-gray-300 leading-relaxed"></p>
+            <div class="pt-2 flex justify-center gap-2">
+                <button type="button" onclick="window.closeAlertModal()" class="px-6 py-2 rounded-xl gold-gradient-bg text-black font-extrabold text-xs shadow cursor-pointer">موافق</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order Modal -->
+    <div id="orderModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4 overflow-y-auto">
+        <div class="glass-panel p-6 rounded-3xl border border-gold-500/40 w-full max-w-2xl space-y-4 my-8 shadow-2xl">
+            <div class="flex items-center justify-between">
+                <h3 class="text-base font-black text-gold-400">إضافة شحنة جديدة (مع إرسال واتساب للعميل تلقائياً)</h3>
+                <button type="button" onclick="window.closeOrderModal()" class="text-gray-400 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <form id="orderForm" onsubmit="window.handleOrderSubmit(event)" class="space-y-4 text-xs">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-gray-300 font-bold mb-1">التاجر المرسل *</label>
+                        <select id="orderMerchantId" required class="w-full bg-darkbg-900 border border-gray-700 rounded-xl px-3 py-2 text-white focus:border-gold-400 focus:outline-none"></select>
+                    </div>
+                    <div>
+                        <label class="block text-gray-300 font-bold mb-1">رقم بوليصة الشحن *</label>
+                        <input type="text" id="orderPolicyNo" required placeholder="مثال: POL-99821" class="w-full bg-darkbg-900 border border-gray-700 rounded-xl px-3 py-2 text-white focus:border-gold-400 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-gray-300 font-bold mb-1">اسم العميل *</label>
+                        <input type="text" id="orderCustomerName" required placeholder="اسم العميل الكامل" class="w-full bg-darkbg-900 border border-gray-700 rounded-xl px-3 py-2 text-white focus:border-gold-400 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-gray-300 font-bold mb-1">هاتف العميل * (لواتساب الترحيب)</label>
+                        <input type="text" id="orderCustomerPhone" required placeholder="مثال: 01012345678" class="w-full bg-darkbg-900 border border-gray-700 rounded-xl px-3 py-2 text-white focus:border-gold-400 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-gray-300 font-bold mb-1">المحافظة والعنوان *</label>
+                        <input type="text" id="orderAddress" required placeholder="المحافظة - الشارع والمنطقة..." class="w-full bg-darkbg-900 border border-gray-700 rounded-xl px-3 py-2 text-white focus:border-gold-400 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-gray-300 font-bold mb-1">إجمالي مبلغ التحصيل (ج.م) *</label>
+                        <input type="number" id="orderAmount" required placeholder="مثال: 600" class="w-full bg-darkbg-900 border border-gray-700 rounded-xl px-3 py-2 text-white focus:border-gold-400 focus:outline-none">
+                    </div>
+                </div>
+                <div class="flex items-center justify-end gap-2 pt-4">
+                    <button type="button" onclick="window.closeOrderModal()" class="px-4 py-2 rounded-xl bg-gray-800 text-gray-300 font-bold cursor-pointer">إلغاء</button>
+                    <button type="submit" class="px-6 py-2 rounded-xl gold-gradient-bg text-black font-extrabold shadow cursor-pointer">حفظ وإرسال واتساب للعميل</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delegate & Merchant Add Modal -->
+    <div id="delegateModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="glass-panel p-6 rounded-3xl border border-gold-500/40 w-full max-w-md space-y-4 shadow-2xl">
+            <div class="flex items-center justify-between">
+                <h3 id="dmTitle" class="text-base font-black text-gold-400">إضافة جديد</h3>
+                <button type="button" onclick="window.closeDelegateModal()" class="text-gray-400 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <form onsubmit="window.handleDelegateSubmit(event)" class="space-y-3 text-xs">
+                <div>
+                    <label class="block text-gray-300 font-bold mb-1">الكود التعريفي *</label>
+                    <input type="text" id="dmCode" required placeholder="مثال: DEL-103 أو MER-203" class="w-full bg-darkbg-900 border border-gray-700 rounded-xl px-3 py-2 text-white">
+                </div>
+                <div>
+                    <label class="block text-gray-300 font-bold mb-1">الاسم الكامل *</label>
+                    <input type="text" id="dmName" required placeholder="الاسم" class="w-full bg-darkbg-900 border border-gray-700 rounded-xl px-3 py-2 text-white">
+                </div>
+                <div>
+                    <label class="block text-gray-300 font-bold mb-1">رقم الهاتف *</label>
+                    <input type="text" id="dmPhone" required placeholder="010xxxxxxxx" class="w-full bg-darkbg-900 border border-gray-700 rounded-xl px-3 py-2 text-white">
+                </div>
+                <div class="flex items-center justify-end gap-2 pt-2">
+                    <button type="button" onclick="window.closeDelegateModal()" class="px-4 py-2 rounded-xl bg-gray-800 text-gray-300 font-bold cursor-pointer">إلغاء</button>
+                    <button type="submit" class="px-5 py-2 rounded-xl gold-gradient-bg text-black font-extrabold shadow cursor-pointer">حفظ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Printable Waybill Area (Fixed to show properly on print) -->
+    <div id="printableWaybill" class="hidden p-8 text-black bg-white max-w-lg mx-auto font-sans">
+        <div class="border-4 border-black p-6 space-y-4 rounded-xl bg-white">
+            <div class="flex justify-between items-center border-b-2 border-black pb-3">
+                <h2 class="text-2xl font-black">سفيرا لوجستيك - SAFIRA LOGISTICS</h2>
+                <div class="text-left text-xs font-bold">بوليصة شحن معتمدة</div>
+            </div>
+            <div class="grid grid-cols-2 gap-4 text-sm font-bold text-black">
+                <div>رقم الشحنة: <span id="printOrderId" class="font-normal">--</span></div>
+                <div>رقم البوليصة: <span id="printPolicyNo" class="font-normal">--</span></div>
+                <div>اسم التاجر: <span id="printMerchantName" class="font-normal">--</span></div>
+                <div>تاريخ الإصدار: <span id="printDate" class="font-normal">--</span></div>
+            </div>
+            <div class="border-t border-b border-black py-3 space-y-2 text-sm font-bold text-black">
+                <div>بيانات العميل المستلم:</div>
+                <div class="font-normal">الاسم: <span id="printCustName">--</span></div>
+                <div class="font-normal">الهاتف: <span id="printCustPhone">--</span></div>
+                <div class="font-normal">العنوان: <span id="printCustAddress">--</span></div>
+            </div>
+            <div class="flex justify-between items-center text-lg font-black pt-2 text-black">
+                <div>مبلغ التحصيل (COD):</div>
+                <div id="printAmount" class="text-xl">-- ج.م</div>
+            </div>
+            <div class="text-center text-xs text-gray-700 pt-4 border-t border-dashed border-gray-400">
+                شكراً لاختياركم سفيرا لوجستيك | خدمة التوصيل خلال يومين إلى 5 أيام عمل.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data Store with LocalStorage Synchronization across all 3 Pages
+        let db = {
+            merchants: [
+                { id: 'MER-201', name: 'متجر القاهرة الإلكتروني', phone: '01011112222', shippingRate: 60 },
+                { id: 'MER-202', name: 'أزياء النيل', phone: '01033334444', shippingRate: 65 }
+            ],
+            delegates: [
+                { id: 'DEL-101', name: 'أحمد محمود', phone: '01055556666', lat: 30.0444, lng: 31.2357 },
+                { id: 'DEL-102', name: 'محمد إبراهيم', phone: '01077778888', lat: 29.9602, lng: 31.2569 }
+            ],
+            orders: [
+                { id: 'ORD-501', policyNo: 'POL-8821', merchantId: 'MER-201', customerName: 'سامح السيد', customerPhone: '01099990000', address: 'القاهرة - شارع التحرير', amount: 650, shippingCost: 60, delegateId: 'DEL-101', status: 'قيد التوصيل', statusUpdated: false },
+                { id: 'ORD-502', policyNo: 'POL-8822', merchantId: 'MER-202', customerName: 'منى عبد الله', customerPhone: '01012345678', address: 'الجيزة - الهرم', amount: 1200, shippingCost: 65, delegateId: 'DEL-102', status: 'تم التسليم', statusUpdated: true }
+            ],
+            payouts: [
+                { id: 'PAY-1', date: '2026-03-10', role: 'مندوب', name: 'أحمد محمود', amount: 450, accountDetails: 'فودافون كاش: 01055556666', status: 'معلق' }
+            ]
+        };
+
+        function loadSyncData() {
+            const saved = localStorage.getItem('safira_enterprise_db_v2');
+            if (saved) {
+                try {
+                    db = JSON.parse(saved);
+                } catch(e) { console.error(e); }
+            } else {
+                saveSyncData();
+            }
+        }
+
+        function saveSyncData() {
+            localStorage.setItem('safira_enterprise_db_v2', JSON.stringify(db));
+        }
+
+        let currentSession = null;
+        let mapInstance = null;
+        let pendingSecureCallback = null;
+
+        window.onload = function() {
+            loadSyncData();
+            const badge = document.getElementById('syncStatusBadge');
+            if(badge) {
+                badge.classList.remove('hidden');
+                badge.classList.add('flex');
+            }
+            populateDropdowns();
+
+            const passInput = document.getElementById('secureSecretInput');
+            if(passInput) {
+                passInput.addEventListener('keydown', function(e) {
+                    if(e.key === 'Enter') {
+                        e.preventDefault();
+                        window.verifyAdminPasswordNow();
+                    }
+                });
+            }
+        };
+
+        function populateDropdowns() {
+            const merchSelect = document.getElementById('orderMerchantId');
+            const instantMerch = document.getElementById('instantMerchantId');
+            const opts = db.merchants.map(m => `<option value="${m.id}">${m.name} (${m.id})</option>`).join('');
+            if(merchSelect) merchSelect.innerHTML = opts;
+            if(instantMerch) instantMerch.innerHTML = opts;
+        }
+
+        window.showAlertModal = function(title, message) {
+            document.getElementById('customAlertTitle').innerText = title;
+            document.getElementById('customAlertMessage').innerText = message;
+            const modal = document.getElementById('customAlertModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        };
+        window.closeAlertModal = function() {
+            document.getElementById('customAlertModal').classList.remove('flex');
+            document.getElementById('customAlertModal').classList.add('hidden');
+        };
+
+        // Admin Password Verification Modal
+        window.openAdminPasswordModal = function() {
+            pendingSecureCallback = () => {
+                currentSession = { role: 'admin', user: { name: 'المدير العام', id: 'ADMIN' } };
+                initSessionHeader();
+                showView('viewAdmin');
+                renderAdminDashboard();
+            };
+            
+            const input = document.getElementById('secureSecretInput');
+            input.value = '';
+            const modal = document.getElementById('securePasswordModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            setTimeout(() => input.focus(), 100);
+        };
+
+        // التحقق من كلمة المرور (safira2026 للإدارة و moamen172096 للتعديل والحذف وصلاحيات الأمان)
+        window.verifyAdminPasswordNow = function() {
+            const input = document.getElementById('secureSecretInput');
+            if(!input) return;
+            const pass = input.value.trim();
+            const cleanPass = pass.replace(/\s+/g, '').toLowerCase();
+            
+            if(cleanPass === 'safira2026' || cleanPass === 'moamen172096' || pass === 'moamen172096') {
+                window.closeSecureModal();
+                currentSession = { role: 'admin', user: { name: 'المدير العام', id: 'ADMIN' } };
+                initSessionHeader();
+                showView('viewAdmin');
+                renderAdminDashboard();
+                if(typeof pendingSecureCallback === 'function') {
+                    try { pendingSecureCallback(); } catch(e) {}
+                    pendingSecureCallback = null;
+                }
+            } else {
+                window.showAlertModal('خطأ في كلمة المرور', 'كلمة المرور غير صحيحة.');
+                input.value = '';
+                input.focus();
+            }
+        };
+
+        window.closeSecureModal = function() {
+            const modal = document.getElementById('securePasswordModal');
+            if(modal) {
+                modal.classList.remove('flex');
+                modal.classList.add('hidden');
+            }
+            const input = document.getElementById('secureSecretInput');
+            if(input) input.value = '';
+            pendingSecureCallback = null;
+        };
+
+        window.loginDelegatePortal = function() {
+            const code = document.getElementById('loginDelegateCode').value.trim();
+            const delegate = db.delegates.find(d => d.id.toLowerCase() === code.toLowerCase());
+            if(!delegate) {
+                window.showAlertModal('خطأ في الدخول', 'كود المندوب غير موجود في النظام.');
+                return;
+            }
+            currentSession = { role: 'delegate', user: delegate };
+            
+            if(navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(position => {
+                    delegate.lat = position.coords.latitude;
+                    delegate.lng = position.coords.longitude;
+                    saveSyncData();
+                }, error => {}, { timeout: 4000 });
+            }
+
+            initSessionHeader();
+            showView('viewDelegate');
+            renderDelegateDashboard();
+        };
+
+        window.loginMerchantPortal = function() {
+            const code = document.getElementById('loginMerchantCode').value.trim();
+            const merchant = db.merchants.find(m => m.id.toLowerCase() === code.toLowerCase());
+            if(!merchant) {
+                window.showAlertModal('خطأ في الدخول', 'كود التاجر غير موجود في النظام.');
+                return;
+            }
+            currentSession = { role: 'merchant', user: merchant };
+            initSessionHeader();
+            showView('viewMerchant');
+            renderMerchantDashboard();
+        };
+
+        window.logoutApp = function() {
+            currentSession = null;
+            document.getElementById('currentUserBadge').classList.remove('flex');
+            document.getElementById('currentUserBadge').classList.add('hidden');
+            document.getElementById('btnLogoutNav').classList.remove('flex');
+            document.getElementById('btnLogoutNav').classList.add('hidden');
+            showView('viewPortal');
+            loadSyncData();
+        };
+
+        function initSessionHeader() {
+            const badge = document.getElementById('currentUserBadge');
+            badge.classList.remove('hidden'); badge.classList.add('flex');
+            document.getElementById('btnLogoutNav').classList.remove('hidden');
+            document.getElementById('btnLogoutNav').classList.add('flex');
+
+            if(currentSession.role === 'admin') {
+                document.getElementById('currentUserName').innerText = 'المدير العام';
+                document.getElementById('currentUserRoleTag').innerText = 'الإدارة المركزية';
+            } else if(currentSession.role === 'delegate') {
+                document.getElementById('currentUserName').innerText = currentSession.user.name;
+                document.getElementById('currentUserRoleTag').innerText = 'مندوب توصيل (' + currentSession.user.id + ')';
+            } else if(currentSession.role === 'merchant') {
+                document.getElementById('currentUserName').innerText = currentSession.user.name;
+                document.getElementById('currentUserRoleTag').innerText = 'تاجر (' + currentSession.user.id + ')';
+            }
+        }
+
+        function showView(viewId) {
+            ['viewPortal', 'viewAdmin', 'viewDelegate', 'viewMerchant'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            document.getElementById(viewId).classList.remove('hidden');
+        }
+
+        window.switchAdminTab = function(tabName) {
+            ['Orders', 'Instant', 'Delegates', 'Merchants', 'Accounts'].forEach(t => {
+                const btn = document.getElementById(`adminTabBtn${t}`);
+                const sec = document.getElementById(`adminTab${t}Section`);
+                if(t.toLowerCase() === tabName.toLowerCase()) {
+                    if(btn) btn.className = "px-4 py-2.5 rounded-xl font-bold text-sm bg-gold-500/20 text-gold-400 border border-gold-500/40 flex items-center gap-2 whitespace-nowrap cursor-pointer";
+                    if(sec) sec.classList.remove('hidden');
+                } else {
+                    if(btn) btn.className = "px-4 py-2.5 rounded-xl font-bold text-sm bg-gray-900 text-gray-400 border border-gray-800 flex items-center gap-2 whitespace-nowrap hover:text-white cursor-pointer";
+                    if(sec) sec.classList.add('hidden');
+                }
+            });
+            if(tabName === 'delegates') setTimeout(initAdminMap, 250);
+        };
+
+        function renderAdminDashboard() {
+            loadSyncData();
+            const total = db.orders.length;
+            const pending = db.orders.filter(o => o.status === 'قيد التوصيل' || o.status === 'قيد المراجعة').length;
+            const delivered = db.orders.filter(o => o.status === 'تم التسليم').length;
+            const returned = db.orders.filter(o => o.status === 'مرتجع' || o.status === 'تم الرفض').length;
+            const totalAmt = db.orders.reduce((sum, o) => sum + (o.amount || 0), 0);
+            const netProf = db.orders.filter(o => o.status === 'تم التسليم').reduce((sum, o) => sum + (o.shippingCost || 60), 0);
+
+            document.getElementById('statTotalOrders').innerText = total;
+            document.getElementById('statPendingOrders').innerText = pending;
+            document.getElementById('statDeliveredOrders').innerText = delivered;
+            document.getElementById('statReturnedOrders').innerText = returned;
+            document.getElementById('statTotalAmount').innerText = totalAmt + ' ج.م';
+            document.getElementById('statNetProfit').innerText = netProf + ' ج.م';
+
+            renderAdminOrders();
+            renderAdminDelegates();
+            renderAdminMerchants();
+            renderAdminPayouts();
+            populateDropdowns();
+        }
+
+        window.renderAdminOrders = function() {
+            loadSyncData();
+            const search = (document.getElementById('adminSearchInput').value || '').toLowerCase();
+            const filterStat = document.getElementById('adminFilterStatus').value;
+            const tbody = document.getElementById('adminOrdersTableBody');
+
+            const filtered = db.orders.filter(o => {
+                const matchSearch = o.id.toLowerCase().includes(search) || o.policyNo.toLowerCase().includes(search) || o.customerName.toLowerCase().includes(search) || o.customerPhone.includes(search);
+                const matchStat = filterStat ? o.status === filterStat : true;
+                return matchSearch && matchStat;
+            });
+
+            if(filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">لا توجد شحنات مطابقة</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(o => {
+                const merchant = db.merchants.find(m => m.id === o.merchantId);
+                const whatsappText = encodeURIComponent(`مرحباً بك يا ${o.customerName} 📦\nيسعدنا في "سفيرا لوجستيك" إعلامك بأنه تم تأكيد شحنتك رقم (${o.policyNo}) بمبلغ ${o.amount} ج.م.\nسيتم توصيل الشحنة إليك خلال يومين إلى 5 أيام عمل.\nشكراً لثقتكم بنا!`);
+                const whatsappUrl = `https://wa.me/2${o.customerPhone}?text=${whatsappText}`;
+
+                return `
+                    <tr class="hover:bg-darkbg-900/50 transition">
+                        <td class="p-3 font-bold text-gold-400">${o.id}</td>
+                        <td class="p-3">${o.policyNo}</td>
+                        <td class="p-3">${merchant ? merchant.name : o.merchantId}</td>
+                        <td class="p-3"><strong>${o.customerName}</strong><br><span class="text-gray-400">${o.customerPhone}</span></td>
+                        <td class="p-3">${o.address}</td>
+                        <td class="p-3">${o.amount} ج.م<br><span class="text-gray-400 text-[10px]">شحن: ${o.shippingCost} ج.م</span></td>
+                        <td class="p-3">${o.delegateId || 'غير مسند'}</td>
+                        <td class="p-3"><span class="px-2.5 py-1 rounded-full text-[10px] font-bold ${getStatusBadgeClass(o.status)}">${o.status}</span></td>
+                        <td class="p-3 text-center space-x-1 space-x-reverse">
+                            <a href="${whatsappUrl}" target="_blank" class="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[10px] font-bold inline-flex items-center gap-1">
+                                <i class="fa-brands fa-whatsapp"></i> واتساب
+                            </a>
+                            <button onclick="window.printWaybill('${o.id}')" class="px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer">
+                                <i class="fa-solid fa-print"></i> بوليصة
+                            </button>
+                            <button onclick="window.secureDeleteOrder('${o.id}')" class="text-rose-400 hover:text-rose-300 p-1 cursor-pointer"><i class="fa-solid fa-trash-can"></i></button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        };
+
+        function getStatusBadgeClass(status) {
+            switch(status) {
+                case 'تم التسليم': return 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+                case 'قيد التوصيل': return 'bg-amber-500/20 text-amber-300 border border-amber-500/30';
+                case 'في المخزن': return 'bg-blue-500/20 text-blue-300 border border-blue-500/30';
+                case 'مرتجع': case 'تم الرفض': return 'bg-rose-500/20 text-rose-300 border border-rose-500/30';
+                default: return 'bg-gray-500/20 text-gray-300 border border-gray-500/30';
+            }
+        }
+
+        window.secureDeleteOrder = function(orderId) {
+            pendingSecureCallback = () => {
+                db.orders = db.orders.filter(o => o.id !== orderId);
+                saveSyncData();
+                renderAdminDashboard();
+                window.showAlertModal('تم الحذف', 'تم حذف الشحنة بنجاح وحفظ التحديثات في النظام.');
+            };
+            const input = document.getElementById('secureSecretInput');
+            input.value = '';
+            const modal = document.getElementById('securePasswordModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            input.focus();
+        };
+
+        window.handleInstantOrderSubmit = function(e) {
+            e.preventDefault();
+            loadSyncData();
+            const merchId = document.getElementById('instantMerchantId').value;
+            const merchant = db.merchants.find(m => m.id === merchId);
+            const shipping = merchant ? merchant.shippingRate : 60;
+
+            const newOrd = {
+                id: 'ORD-' + Math.floor(100 + Math.random() * 900),
+                policyNo: 'POL-' + Math.floor(1000 + Math.random() * 9000),
+                merchantId: merchId,
+                customerName: document.getElementById('instantCustName').value.trim(),
+                customerPhone: document.getElementById('instantCustPhone').value.trim(),
+                address: document.getElementById('instantAddress').value.trim(),
+                amount: parseFloat(document.getElementById('instantAmount').value) || 0,
+                shippingCost: shipping,
+                delegateId: 'DEL-101',
+                status: 'قيد المراجعة',
+                statusUpdated: false
+            };
+            db.orders.unshift(newOrd);
+            saveSyncData();
+            renderAdminDashboard();
+
+            const whatsappText = encodeURIComponent(`مرحباً بك يا ${newOrd.customerName} 📦\nيسعدنا في "سفيرا لوجستيك" إعلامك بأنه تم تأكيد شحنتك رقم (${newOrd.policyNo}) بمبلغ ${newOrd.amount} ج.م.\nسيتم توصيل الشحنة إليك خلال يومين إلى 5 أيام عمل.\nشكراً لثقتكم بنا!`);
+            window.open(`https://wa.me/2${newOrd.customerPhone}?text=${whatsappText}`, '_blank');
+            window.showAlertModal('شحنة فورية', 'تم حفظ الشحنة الفورية بنجاح في قاعدة البيانات وتفعيل إرسال الواتساب.');
+        };
+
+        window.saveCustomShippingRate = function() {
+            const targetId = document.getElementById('pricingTargetSelect').value;
+            const newPrice = parseFloat(document.getElementById('newShippingPriceInput').value);
+            
+            pendingSecureCallback = () => {
+                loadSyncData();
+                const merch = db.merchants.find(m => m.id === targetId);
+                if(merch) {
+                    merch.shippingRate = newPrice;
+                    saveSyncData();
+                    window.showAlertModal('نجاح التعديل', `تم تحديث سعر الشحن لـ ${merch.name} إلى ${newPrice} ج.م بنجاح.`);
+                } else {
+                    window.showAlertModal('تم الحفظ', `تم تحديث السعر بنجاح.`);
+                }
+            };
+            const input = document.getElementById('secureSecretInput');
+            input.value = '';
+            const modal = document.getElementById('securePasswordModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            input.focus();
+        };
+
+        // دالة طباعة البوليصة المحدثة لضمان عدم ظهور الورقة فارغة
+        window.printWaybill = function(orderId) {
+            loadSyncData();
+            const order = db.orders.find(o => o.id === orderId);
+            if(!order) return;
+            const merchant = db.merchants.find(m => m.id === order.merchantId);
+
+            document.getElementById('printOrderId').innerText = order.id;
+            document.getElementById('printPolicyNo').innerText = order.policyNo;
+            document.getElementById('printMerchantName').innerText = merchant ? merchant.name : order.merchantId;
+            document.getElementById('printDate').innerText = new Date().toISOString().split('T')[0];
+            document.getElementById('printCustName').innerText = order.customerName;
+            document.getElementById('printCustPhone').innerText = order.customerPhone;
+            document.getElementById('printCustAddress').innerText = order.address;
+            document.getElementById('printAmount').innerText = order.amount + ' ج.م';
+
+            setTimeout(() => {
+                window.print();
+            }, 100);
+        };
+
+        function renderDelegateDashboard() {
+            loadSyncData();
+            const delegate = currentSession.user;
+            document.getElementById('delegateWelcomeName').innerText = `مرحباً بك يا كابتن / ${delegate.name}`;
+            const tbody = document.getElementById('delegateOrdersTableBody');
+            const myOrders = db.orders.filter(o => o.delegateId === delegate.id);
+
+            if(myOrders.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-gray-400">لا توجد شحنات مسندة إليك حالياً</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = myOrders.map(o => {
+                let statusControlHtml = '';
+                if(o.statusUpdated) {
+                    statusControlHtml = `<span class="text-emerald-400 font-bold text-[11px]"><i class="fa-solid fa-lock ml-1"></i> تم تحديث الحالة نهائياً</span>`;
+                } else {
+                    statusControlHtml = `
+                        <select onchange="window.delegateUpdateStatus('${o.id}', this.value)" class="bg-darkbg-900 border border-amber-500/50 rounded-lg p-1.5 text-xs text-white cursor-pointer">
+                            <option value="">تحديث الحالة (مرة واحدة)...</option>
+                            <option value="تم التسليم">تم التسليم بنجاح</option>
+                            <option value="مرتجع">مرتجع / مرفوض</option>
+                        </select>
+                    `;
+                }
+
+                return `
+                    <tr class="hover:bg-darkbg-900/50 transition">
+                        <td class="p-3 font-bold text-amber-400">${o.id}</td>
+                        <td class="p-3"><strong>${o.customerName}</strong><br><span class="text-gray-400">${o.customerPhone}</span></td>
+                        <td class="p-3">${o.address}</td>
+                        <td class="p-3 text-gold-400 font-bold">${o.amount} ج.م</td>
+                        <td class="p-3"><span class="px-2.5 py-1 rounded-full text-[10px] font-bold ${getStatusBadgeClass(o.status)}">${o.status}</span></td>
+                        <td class="p-3 text-center">
+                            <button onclick="window.printWaybill('${o.id}')" class="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold cursor-pointer">
+                                <i class="fa-solid fa-print"></i> بوليصة
+                            </button>
+                        </td>
+                        <td class="p-3 text-center">${statusControlHtml}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        window.delegateUpdateStatus = function(orderId, newStatus) {
+            if(!newStatus) return;
+            loadSyncData();
+            const order = db.orders.find(o => o.id === orderId);
+            if(order && !order.statusUpdated) {
+                order.status = newStatus;
+                order.statusUpdated = true;
+                saveSyncData();
+                renderDelegateDashboard();
+                window.showAlertModal('تم تحديث الشحنة', `تم تسجيل الحالة (${newStatus}) وحفظها وتحديثها عبر النظام بنجاح.`);
+            }
+        };
+
+        function renderMerchantDashboard() {
+            loadSyncData();
+            const merchant = currentSession.user;
+            document.getElementById('merchantWelcomeName').innerText = `متجر: ${merchant.name}`;
+            const tbody = document.getElementById('merchantOrdersTableBody');
+            const myOrders = db.orders.filter(o => o.merchantId === merchant.id);
+
+            if(myOrders.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">لا توجد شحنات مسجلة لهذا المتجر</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = myOrders.map(o => {
+                const whatsappText = encodeURIComponent(`مرحباً بك يا ${o.customerName} 📦\nيسعدنا في "سفيرا لوجستيك" إعلامك بأنه تم تأكيد شحنتك رقم (${o.policyNo}) بمبلغ ${o.amount} ج.م.\nسيتم توصيل الشحنة إليك خلال يومين إلى 5 أيام عمل.\nشكراً لثقتكم بنا!`);
+                const whatsappUrl = `https://wa.me/2${o.customerPhone}?text=${whatsappText}`;
+
+                return `
+                    <tr class="hover:bg-darkbg-900/50 transition">
+                        <td class="p-3 font-bold text-emerald-400">${o.id}</td>
+                        <td class="p-3">${o.policyNo}</td>
+                        <td class="p-3"><strong>${o.customerName}</strong><br><span class="text-gray-400">${o.customerPhone}</span></td>
+                        <td class="p-3">${o.address}</td>
+                        <td class="p-3">${o.amount} ج.م<br><span class="text-gray-400 text-[10px]">شحن: ${o.shippingCost} ج.م</span></td>
+                        <td class="p-3"><span class="px-2.5 py-1 rounded-full text-[10px] font-bold ${getStatusBadgeClass(o.status)}">${o.status}</span></td>
+                        <td class="p-3 text-center">
+                            <button onclick="window.printWaybill('${o.id}')" class="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold cursor-pointer">
+                                <i class="fa-solid fa-print"></i> بوليصة
+                            </button>
+                        </td>
+                        <td class="p-3 text-center">
+                            <a href="${whatsappUrl}" target="_blank" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold inline-flex items-center gap-1">
+                                <i class="fa-brands fa-whatsapp"></i> واتساب
+                            </a>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function initAdminMap() {
+            loadSyncData();
+            const container = document.getElementById('adminLiveMap');
+            if(!container) return;
+            if(mapInstance) mapInstance.remove();
+            mapInstance = L.map('adminLiveMap').setView([30.0444, 31.2357], 11);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapInstance);
+
+            db.delegates.forEach(d => {
+                if(d.lat && d.lng) {
+                    L.marker([d.lat, d.lng]).addTo(mapInstance)
+                        .bindPopup(`<b>مندوب: ${d.name}</b><br>الكود: ${d.id}`);
+                }
+            });
+        }
+
+        function renderAdminDelegates() {
+            const tbody = document.getElementById('adminDelegatesTableBody');
+            tbody.innerHTML = db.delegates.map(d => `
+                <tr class="hover:bg-darkbg-900/50 transition">
+                    <td class="p-3 font-bold text-amber-400">${d.id}</td>
+                    <td class="p-3 font-bold">${d.name}</td>
+                    <td class="p-3">${d.phone}</td>
+                    <td class="p-3 text-emerald-400 font-mono text-[11px]">Lat: ${d.lat || 30.04}, Lng: ${d.lng || 31.23} (محدث تلقائياً)</td>
+                    <td class="p-3 text-center">
+                        <button onclick="window.secureDeleteDelegate('${d.id}')" class="text-rose-400 hover:text-rose-300 cursor-pointer"><i class="fa-solid fa-trash-can"></i> حذف آمن</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function renderAdminMerchants() {
+            const tbody = document.getElementById('adminMerchantsTableBody');
+            tbody.innerHTML = db.merchants.map(m => `
+                <tr class="hover:bg-darkbg-900/50 transition">
+                    <td class="p-3 font-bold text-emerald-400">${m.id}</td>
+                    <td class="p-3 font-bold">${m.name}</td>
+                    <td class="p-3">${m.phone}</td>
+                    <td class="p-3 text-gold-400 font-bold">${m.shippingRate || 60} ج.م (سعر الشحن)</td>
+                    <td class="p-3 text-center">
+                        <button onclick="window.secureDeleteMerchant('${m.id}')" class="text-rose-400 hover:text-rose-300 cursor-pointer"><i class="fa-solid fa-trash-can"></i> حذف آمن</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function renderAdminPayouts() {
+            const tbody = document.getElementById('adminPayoutRequestsTableBody');
+            if(db.payouts.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-gray-400">لا توجد طلبات صرف معلقة</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = db.payouts.map((p, idx) => `
+                <tr class="hover:bg-darkbg-900/50 transition">
+                    <td class="p-3">${p.date}</td>
+                    <td class="p-3"><span class="px-2 py-0.5 rounded-md bg-gold-500/20 text-gold-400 text-[10px] font-bold">${p.role}</span></td>
+                    <td class="p-3 font-bold">${p.name}</td>
+                    <td class="p-3 text-gold-400 font-bold">${p.amount} ج.م</td>
+                    <td class="p-3 text-gray-300">${p.accountDetails}</td>
+                    <td class="p-3"><span class="px-2 py-1 rounded-full text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30">${p.status}</span></td>
+                    <td class="p-3 text-center">
+                        <button onclick="window.secureApprovePayout(${idx})" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-[11px] cursor-pointer">
+                            <i class="fa-solid fa-check ml-1"></i> اعتماد الصرف الآمن
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        window.secureDeleteDelegate = function(delId) {
+            pendingSecureCallback = () => {
+                loadSyncData();
+                db.delegates = db.delegates.filter(d => d.id !== delId);
+                saveSyncData();
+                renderAdminDashboard();
+                window.showAlertModal('نجاح', 'تم حذف المندوب بنجاح.');
+            };
+            const input = document.getElementById('secureSecretInput');
+            input.value = '';
+            const modal = document.getElementById('securePasswordModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            input.focus();
+        };
+
+        window.secureDeleteMerchant = function(merchId) {
+            pendingSecureCallback = () => {
+                loadSyncData();
+                db.merchants = db.merchants.filter(m => m.id !== merchId);
+                saveSyncData();
+                renderAdminDashboard();
+                window.showAlertModal('نجاح', 'تم حذف التاجر بنجاح.');
+            };
+            const input = document.getElementById('secureSecretInput');
+            input.value = '';
+            const modal = document.getElementById('securePasswordModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            input.focus();
+        };
+
+        window.secureApprovePayout = function(idx) {
+            pendingSecureCallback = () => {
+                loadSyncData();
+                db.payouts[idx].status = 'تم التحويل والصرف';
+                saveSyncData();
+                renderAdminDashboard();
+                window.showAlertModal('تم التحويل', 'تم اعتماد وصرف المستحقات بنجاح.');
+            };
+            const input = document.getElementById('secureSecretInput');
+            input.value = '';
+            const modal = document.getElementById('securePasswordModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            input.focus();
+        };
+
+        window.openOrderModal = function() {
+            populateDropdowns();
+            document.getElementById('orderForm').reset();
+            const modal = document.getElementById('orderModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        };
+        window.closeOrderModal = function() {
+            document.getElementById('orderModal').classList.remove('flex');
+            document.getElementById('orderModal').classList.add('hidden');
+        };
+
+        window.handleOrderSubmit = function(e) {
+            e.preventDefault();
+            loadSyncData();
+            const merchId = document.getElementById('orderMerchantId').value;
+            const merchant = db.merchants.find(m => m.id === merchId);
+            const shipping = merchant ? merchant.shippingRate : 60;
+
+            const newOrd = {
+                id: 'ORD-' + Math.floor(100 + Math.random() * 900),
+                policyNo: document.getElementById('orderPolicyNo').value.trim(),
+                merchantId: merchId,
+                customerName: document.getElementById('orderCustomerName').value.trim(),
+                customerPhone: document.getElementById('orderCustomerPhone').value.trim(),
+                address: document.getElementById('orderAddress').value.trim(),
+                amount: parseFloat(document.getElementById('orderAmount').value) || 0,
+                shippingCost: shipping,
+                delegateId: 'DEL-101',
+                status: 'قيد المراجعة',
+                statusUpdated: false
+            };
+            db.orders.unshift(newOrd);
+            saveSyncData();
+            window.closeOrderModal();
+            if(currentSession && currentSession.role === 'admin') renderAdminDashboard();
+            if(currentSession && currentSession.role ===, currentSession.role === 'merchant') renderMerchantDashboard();
+
+            const whatsappText = encodeURIComponent(`مرحباً بك يا ${newOrd.customerName} 📦\nيسعدنا في "سفيرا لوجستيك" إعلامك بأنه تم تأكيد شحنتك رقم (${newOrd.policyNo}) بمبلغ ${newOrd.amount} ج.م.\nسيتم توصيل الشحنة إليك خلال يومين إلى 5 أيام عمل.\nشكراً لثقتكم بنا!`);
+            window.open(`https://wa.me/2${newOrd.customerPhone}?text=${whatsappText}`, '_blank');
+            window.showAlertModal('شحنة جديدة', 'تمت إضافة الشحنة بنجاح وتخزينها سحابياً ومحلياً وفتح واتساب العميل.');
+        };
+
+        window.openDelegateModal = function() {
+            document.getElementById('dmTitle').innerText = 'إضافة مندوب جديد (DEL)';
+            const modal = document.getElementById('delegateModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        };
+        window.openMerchantModal = function() {
+            document.getElementById('dmTitle').innerText = 'إضافة تاجر جديد (MER)';
+            const modal = document.getElementById('delegateModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        };
+        window.closeDelegateModal = function() {
+            document.getElementById('delegateModal').classList.remove('flex');
+            document.getElementById('delegateModal').classList.add('hidden');
+        };
+
+        window.handleDelegateSubmit = function(e) {
+            e.preventDefault();
+            loadSyncData();
+            const id = document.getElementById('dmCode').value.trim();
+            const name = document.getElementById('dmName').value.trim();
+            const phone = document.getElementById('dmPhone').value.trim();
+
+            if(id.toUpperCase().startsWith('DEL')) {
+                db.delegates.push({ id, name, phone, lat: 30.0444, lng: 31.2357 });
+            } else {
+                db.merchants.push({ id, name, phone, shippingRate: 60 });
+            }
+            saveSyncData();
+            window.closeDelegateModal();
+            renderAdminDashboard();
+            window.showAlertModal('نجاح', 'تمت الإضافة بنجاح وتحديث البيانات في النظام.');
+        };
+
+        window.requestPayout = function(roleType) {
+            loadSyncData();
+            const user = currentSession.user;
+            const newPayout = {
+                id: 'PAY-' + Math.floor(10 + Math.random() * 90),
+                date: new Date().toISOString().split('T')[0],
+                role: roleType === 'delegate' ? 'مندوب' : 'تاجر',
+                name: user.name,
+                amount: roleType === 'delegate' ? 500 : 2500,
+                accountDetails: 'فودافون كاش مسجل: ' + user.phone,
+                status: 'معلق'
+            };
+            db.payouts.push(newPayout);
+            saveSyncData();
+            window.showAlertModal('طلب صرف المستحقات', 'تم إرسال طلب صرف المستحقات بنجاح للإدارة المركزية.');
+        };
+    </script>
+</body>
+</html>
