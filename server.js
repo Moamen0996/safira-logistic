@@ -7,25 +7,29 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
+// تقديم الملفات الثابتة من مجلد public
+app.use(express.static('public'));
+
 // مسار تجريبي للتأكد أن السيرفر يعمل
 app.get('/', (req, res) => {
   res.json({ status: 'success', message: 'Safira Logistics API is running perfectly!' });
 });
 
-// الاتصال بقاعدة البيانات MongoDB Atlas
+// مسار صفحة الأدمن
+app.get('/admin', (req, res) => {
+  res.sendFile(__dirname + '/public/admin.html');
+});
+
+// إعدادات المنافذ وقاعدة البيانات
 const PORT = process.env.PORT || 8080;
 const MONGO_URI = process.env.MONGO_URI;
-app.get('/admin', (req, res) => {
-  res.sendFile(__dirname + '/public/admin.html'); // أو المسار الصحيح لصفحة الأدمن عندك
-// التأكد من وجود رابط قاعدة البيانات قبل الاتصال
-if (!MONGO_URI) {
-    console.error("❌ خطأ: متغير MONGO_URI مفقود في متغيرات البيئة على Railway!");
-}
-/ الاتصال بقاعدة البيانات MongoDB Atlas وتشغيل السيرفر
+
+// التحقق من وجود رابط قاعدة البيانات قبل الاتصال
 if (!MONGO_URI) {
     console.error("❌ خطأ: متغير MONGO_URI مفقود في متغيرات البيئة على Railway!");
 }
 
+// الاتصال بقاعدة البيانات MongoDB Atlas وتشغيل السيرفر
 mongoose.connect(MONGO_URI)
   .then(() => {
     console.log('✅ Connected to MongoDB Atlas successfully');
@@ -36,10 +40,3 @@ mongoose.connect(MONGO_URI)
   .catch((err) => {
     console.error('❌ Database connection error:', err);
   });
-  })
-  .catch((err) => {
-    console.error('Database connection error:', err);
-  });
-app.get('/admin', (req, res) => {
-  res.sendFile(__dirname + '/public/admin.html'); // أو المسار الصحيح لصفحة الأدمن عندك
-});
