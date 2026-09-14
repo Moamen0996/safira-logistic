@@ -1323,7 +1323,21 @@ async function handleOrderSubmit(event) {
         console.error('خطأ في الاتصال:', error);
         alert('فشل الاتصال بالخادم السحابي.');
     }
+} catch (error) {
+        console.error('خطأ في الاتصال:', error);
+        alert('فشل الاتصال بالخادم السحابي.');
+    }
 }
+
+// دالة فتح نافذة كلمة مرور الأدمن (المفقودة والتي تسبب الخطأ)
+window.openAdminPasswordModal = function() {
+    const password = prompt('الرجاء إدخال كلمة مرور لوحة التحكم:');
+    if (password === '123456') { // استبدلها بكلمة المرور الخاصة بك أو اربطها بالمتغير الخاص بك
+        window.location.href = '/admin.html'; // أو دالة إظهار نافذة الأدمن
+    } else if (password !== null) {
+        alert('كلمة المرور غير صحيحة!');
+    }
+};
 
 // دالة جلب الشحنات من السحابة وعرضها لكل الأجهزة
 async function fetchLatestOrdersFromCloud() {
@@ -1334,7 +1348,10 @@ async function fetchLatestOrdersFromCloud() {
         const shipments = await response.json();
         console.log('📦 الشحنات المسترجعة من سحاب MongoDB:', shipments);
         
-        // ملاحظة: إذا كانت لديك دالة جاهزة في مشروعك لعرض الجدول، يمكنك استدعاؤها هنا وتمرير shipments لها.
+        // إذا كانت لديك دالة عرض الجدول الخاصة بك، قم باستدعائها هنا:
+        if (typeof renderOrders === 'function') {
+            renderOrders(shipments);
+        }
         
     } catch (error) {
         console.error('فشل جلب الشحنات:', error);
