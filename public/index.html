@@ -513,16 +513,15 @@
                 { id: "MER-202", name: "أزياء الإسكندرية", phone: "01233445566", dues: 4100 }
             ],
             payouts: []
-    const API_URL = "https://safira-logistic-production.up.railway.app/api"; 
+        }; 
+
+        const API_URL = "https://safira-logistic-production.up.railway.app/api"; 
 
         let currentUser = null;
         let mapInstance = null;
 
         async function saveDB() {
-            // حفظ نسخة احتياطية محلياً
             localStorage.setItem(DB_KEY, JSON.stringify(db));
-            
-            // حفظ البيانات سحابياً على MongoDB عبر سيرفر Railway
             try {
                 await fetch(`${API_URL}/data`, {
                     method: 'POST',
@@ -548,7 +547,6 @@
                 console.log("Using local fallback due to network error", e);
             }
             
-            // قراءة من التخزين المحلي في حال تعذر الاتصال بالسيرفر
             const data = localStorage.getItem(DB_KEY);
             if (data) {
                 try { db = JSON.parse(data); } catch(e){}
@@ -556,7 +554,7 @@
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
-            await loadDB(); // جلب البيانات من السحابة أولاً
+            await loadDB();
             populateMerchantDropdowns();
             startAutoGPSUpdates();
             const badge = document.getElementById('syncStatusBadge');
@@ -565,120 +563,37 @@
                 badge.style.display = 'flex';
             }
         });
-        });
 
         function populateMerchantDropdowns() {
             const sel = document.getElementById('instantMerchantId');
             if (!sel) return;
             sel.innerHTML = db.merchants.map(m => `<option value="${m.id}">${m.name} (${m.id})</option>`).join('');
         }
-// 1. إنشاء زر عائم وثابت لفتح الإدارة في زاوية الشاشة لضمان الوصول الفوري
-        document.addEventListener('DOMContentLoaded', () => {
-            if (!document.getElementById('floatingAdminBtn')) {
-                const floatBtn = document.createElement('button');
-                floatBtn.id = 'floatingAdminBtn';
-                floatBtn.innerHTML = '⚙️ الإدارة';
-                floatBtn.className = 'fixed bottom-5 left-5 bg-gold-500 hover:bg-gold-600 text-darkbg-950 font-black px-4 py-3 rounded-full shadow-2xl z-50 transition transform hover:scale-105 flex items-center gap-2 border-2 border-darkbg-950';
-                floatBtn.onclick = () => window.openAdminPasswordModal();
-                document.body.appendChild(floatBtn);
-            }
-        });
 
-        // 2. دالة فتح نافذة كلمة المرور
         window.openAdminPasswordModal = function() {
-            let modal = document.getElementById('dynamicAdminModal');
-            if (!modal) {
-                modal = document.createElement('div');
-                modal.id = 'dynamicAdminModal';
-                modal.className = 'fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4';
-                modal.innerHTML = `
-                    <div class="bg-darkbg-800 border border-gold-500/50 rounded-2xl p-6 w-full max-w-sm text-center shadow-2xl relative">
-                        <button onclick="closeAdminPasswordModal()" class="absolute top-3 left-3 text-gray-400 hover:text-white text-xl">&times;</button>
-                        <h3 class="text-base font-black text-white mb-2">التحقق الأمني للإدارة</h3>
-                        <p class="text-xs text-gray-300 leading-relaxed mb-4">أدخل كلمة مرور الإدارة المركزية:</p>
-                        <input type="password" id="dynamicSecretInput" placeholder="••••••••••••" class="w-full bg-darkbg-900 border border-gold-500/40 rounded-xl px-4 py-2.5 text-center text-white tracking-widest focus:outline-none focus:border-gold-400 mb-4">
-                        <div class="grid grid-cols-2 gap-2">
-                            <button onclick="submitAdminPassword()" class="bg-gold-500 hover:bg-gold-600 text-darkbg-950 font-bold py-2.5 rounded-xl transition">دخول</button>
-                            <button onclick="closeAdminPasswordModal()" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition">إلغاء</button>
-                        </div>
-                    </div>
-                `;
-                document.body.appendChild(modal);
-            }
-            modal.style.display = 'flex';
-            setTimeout(() => {
-                const input = document.getElementById('dynamicSecretInput');
+            const modal = document.getElementById('securePasswordModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.style.display = 'flex';
+                const input = document.getElementById('secureSecretInput');
                 if (input) {
                     input.value = '';
                     input.focus();
                 }
-            }, 100);
+            }
         };
 
         window.closeAdminPasswordModal = function() {
-            const modal = document.getElementById('dynamicAdminModal');
+            const modal = document.getElementById('securePasswordModal');
             if (modal) {
+                modal.classList.add('hidden');
                 modal.style.display = 'none';
             }
         };
 
-        window.submitAdminPassword = function() {
-            const input = document.getElementById('dynamicSecretInput');
-            if (input && input.value === '123456') { // كلمة المرور الافتراضية
-                closeAdminPasswordModal();
-                if (typeof showSection === 'function') {
-                    showSection('admin');
-                } else {
-                    alert('تم التحقق بنجاح وتمت الدخول!');
-                }
-            } else {
-                alert('كلمة المرور غير صحيحة!');
-            }
-        };
-        window.submitAdminPassword = function() {
-            const input = document.getElementById('dynamicSecretInput');
-            if (input && input.value === '123456') { // كلمة المرور الافتراضية للإدارة، يمكنك تغييرها حسب نظامك
-                closeAdminPasswordModal();
-                // الانتقال لوحة التحكم الإدارية (تأكد من اسم دالة الإدارة لديك مثل showSection أو ما شابه)
-                if (typeof showSection === 'function') {
-                    showSection('admin');
-                } else {
-                    alert('تم التحقق بنجاح!');
-                }
-            } else {
-                alert('كلمة المرور غير صحيحة!');
-            }
-        };
-
-        // ربط الزر تلقائياً بعبارة "الإدارة المركزية" في أي مكان بالصفحة
-        document.addEventListener('DOMContentLoaded', () => {
-            document.body.addEventListener('click', (e) => {
-                const target = e.target.closest('div, button, a');
-                if (target && target.textContent.includes('الإدارة المركزية')) {
-                    e.preventDefault();
-                    window.openAdminPasswordModal();
-                }
-            });
-        });
-        // ربط الزر تلقائياً بمجرد تحميل الصفحة لضمان الاستجابة حتى لو كان الـ onclick مفقوداً
-        document.addEventListener('DOMContentLoaded', () => {
-            // البحث عن بطاية أو زر الإدارة المركزية بالصفحة عبر النص أو الفئات
-            const allCards = document.querySelectorAll('div, button, a');
-            allCards.forEach(el => {
-                if (el.textContent.includes('الإدارة المركزية') && !el.dataset.bound) {
-                    el.dataset.bound = "true";
-                    el.style.cursor = 'pointer';
-                    el.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        window.openAdminPasswordModal();
-                    });
-                }
-            });
-        });
-        
         window.verifyAdminPassword = function() {
             const val = document.getElementById('secureSecretInput').value;
-            if (val === 'safira2026') {
+            if (val === '123456' || val === 'safira2026') {
                 closeAdminPasswordModal();
                 currentUser = { role: 'admin', name: 'الإدارة المركزية' };
                 updateHeaderAuthBadge();
@@ -1109,29 +1024,6 @@
             alert(`تم إضافة التاجر برمز الدخول: ${id}`);
             renderAdminDashboard();
         };
-
-window.openAdminPasswordModal = function() {
-    let modal = document.getElementById('dynamicAdminModal');
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'dynamicAdminModal';
-        modal.className = 'fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4';
-        modal.style.display = 'flex';
-        modal.innerHTML = `
-            <div class="bg-gray-800 border border-yellow-500 rounded-2xl p-6 w-full max-w-sm text-center shadow-2xl relative">
-                <button onclick="document.getElementById('dynamicAdminModal').style.display='none'" class="absolute top-3 left-3 text-white text-xl">&times;</button>
-                <h3 class="text-base font-bold text-white mb-2">التحقق الأمني للإدارة</h3>
-                <p class="text-xs text-gray-300 mb-4">أدخل كلمة مرور الإدارة:</p>
-                <input type="password" id="dynamicSecretInput" placeholder="••••" class="w-full bg-gray-900 border border-yellow-500 rounded-xl px-4 py-2 text-center text-white mb-4">
-                <button onclick="alert(document.getElementById('dynamicSecretInput').value)" class="w-full bg-yellow-500 text-black font-bold py-2 rounded-xl">دخول</button>
-            </div>
-        `;
-        document.body.appendChild(modal);
-    } else {
-        modal.style.display = 'flex';
-    }
-};
-openAdminPasswordModal();
     </script>
 </body>
 </html>
