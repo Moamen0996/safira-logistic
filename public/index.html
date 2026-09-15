@@ -573,33 +573,45 @@
             sel.innerHTML = db.merchants.map(m => `<option value="${m.id}">${m.name} (${m.id})</option>`).join('');
         }
 
- window.openAdminPasswordModal = function() {
-            // البحث عن حقل الإدخال ومحاولة الوصول للنافذة المحيطة به
-            const input = document.getElementById('secureSecretInput');
-            if (input) {
-                // العثور على الحاوية الأب (الـ Modal Div) وإظهارها
-                const modal = input.closest('div.fixed') || input.parentElement.parentElement;
-                if (modal) {
-                    modal.classList.remove('hidden');
-                    modal.style.display = 'flex';
+// دوال فتح وإغلاق الإدارة المحسنة
+        window.openAdminPasswordModal = function() {
+            const modal = document.getElementById('securePasswordModal') || document.querySelector('#secureSecretInput')?.closest('.fixed');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.style.display = 'flex';
+                const input = document.getElementById('secureSecretInput');
+                if (input) {
+                    input.value = '';
+                    input.focus();
                 }
-                input.value = '';
-                input.focus();
             } else {
-                console.error("لم يتم العثور على حقل الإدخال secureSecretInput");
+                console.error("لم يتم العثور على نافذة التحقق الأمني.");
             }
         };
 
         window.closeAdminPasswordModal = function() {
-            const input = document.getElementById('secureSecretInput');
-            if (input) {
-                const modal = input.closest('div.fixed') || input.parentElement.parentElement;
-                if (modal) {
-                    modal.classList.add('hidden');
-                    modal.style.display = 'none';
-                }
+            const modal = document.getElementById('securePasswordModal') || document.querySelector('#secureSecretInput')?.closest('.fixed');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.style.display = 'none';
             }
         };
+
+        // ربط الزر تلقائياً بمجرد تحميل الصفحة لضمان الاستجابة حتى لو كان الـ onclick مفقوداً
+        document.addEventListener('DOMContentLoaded', () => {
+            // البحث عن بطاية أو زر الإدارة المركزية بالصفحة عبر النص أو الفئات
+            const allCards = document.querySelectorAll('div, button, a');
+            allCards.forEach(el => {
+                if (el.textContent.includes('الإدارة المركزية') && !el.dataset.bound) {
+                    el.dataset.bound = "true";
+                    el.style.cursor = 'pointer';
+                    el.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        window.openAdminPasswordModal();
+                    });
+                }
+            });
+        });
         
         window.verifyAdminPassword = function() {
             const val = document.getElementById('secureSecretInput').value;
