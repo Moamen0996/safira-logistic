@@ -999,6 +999,138 @@
             alert(`تم إضافة التاجر برمز الدخول: ${id}`);
             renderAdminDashboard();
         };
+       <!-- Secure Password Modal -->
+    <div id="securePasswordModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="glass-panel p-6 rounded-3xl border border-gold-500/40 w-full max-w-sm space-y-4 shadow-2xl text-center">
+            <div class="w-12 h-12 rounded-2xl bg-gold-500/20 text-gold-400 flex items-center justify-center mx-auto text-xl">
+                <i class="fa-solid fa-shield-halved"></i>
+            </div>
+            <h3 class="text-base font-black text-white">التحقق الأمني للإدارة</h3>
+            <p class="text-xs text-gray-300 leading-relaxed">أدخل كلمة مرور الإدارة المركزية:</p>
+            <input type="password" id="secureSecretInput" autocomplete="current-password" placeholder="••••••••••••" class="w-full bg-darkbg-900 border border-gold-500/40 rounded-xl px-4 py-2.5 text-center text-white tracking-widest focus:outline-none focus:border-gold-400">
+            <div class="grid grid-cols-2 gap-2 pt-2">
+                <button type="button" onclick="window.closeAdminPasswordModal()" class="py-2.5 rounded-xl bg-gray-800 text-gray-300 font-bold text-xs hover:bg-gray-700 cursor-pointer">إلغاء</button>
+                <button type="button" onclick="window.verifyAdminPassword()" class="py-2.5 rounded-xl gold-gradient-bg text-black font-extrabold text-xs hover:brightness-110 cursor-pointer">دخول آمن</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Printable Waybill Hidden Container -->
+    <div id="printableWaybill" class="hidden"></div>
+
+    <!-- ضع كود الـ JavaScript المتكامل هنا -->
+    <script>
+        // تهيئة هيكل البيانات الأساسي (State) كاحتياطي أو كقاعدة افتراضية
+        let db = {
+            merchants: [],
+            orders: [],
+            agents: [],
+            settings: { companyName: "سفيرا للخدمات اللوجستية والشحن" }
+        };
+
+        // عنوان الخادم الأساسي (Backend URL على Railway أو محلياً)
+        const API_BASE_URL = window.location.hostname === 'localhost' 
+            ? 'http://localhost:5000/api' 
+            : 'https://your-railway-app-url.railway.app/api';
+
+        // جلب البيانات من قاعدة البيانات عند فتح التطبيق
+        async function loadDB() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/data`);
+                if (response.ok) {
+                    const data = await response.json();
+                    db = data;
+                    console.log("تم تحميل البيانات بنجاح من قاعدة البيانات السحابية.");
+                }
+            } catch (error)  {
+                console.warn("تعذر الاتصال الخادم، يتم الاعتماد على التخزين المحلي المؤقت.", error);
+                const localData = localStorage.getItem('safira_db');
+                if (localData) db = JSON.parse(localData);
+            }
+            renderCurrentView();
+        }
+
+        // حفظ وتحديث البيانات في الخادم وقاعدة البيانات
+        async function saveDB() {
+            localStorage.setItem('safira_db', JSON.stringify(db));
+            try {
+                await fetch(`${API_BASE_URL}/data`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(db)
+                });
+            } catch (error) {
+                console.error("فشل المزامنة الفورية مع قاعدة البيانات:", error);
+            }
+        }
+
+        // التحقق الأمني للإدارة المركزية
+        window.verifyAdminPassword = function() {
+            const passwordInput = document.getElementById('secureSecretInput');
+            const password = passwordInput ? passwordInput.value : '';
+            const ADMIN_SECRET = "Safira2026Admin"; 
+
+            if (password === ADMIN_SECRET) {
+                if (window.closeAdminPasswordModal) window.closeAdminPasswordModal();
+                alert("تم التحقق بنجاح! مرحباً بك في لوحة تحكم الإدارة المركزية.");
+                if (typeof showAdminDashboard === 'function') {
+                    showAdminDashboard();
+                } else {
+                    console.log("Admin Authorized.");
+                }
+            } else {
+                alert("كلمة المرور غير صحيحة! حاول مرة أخرى.");
+                if (passwordInput) passwordInput.value = '';
+            }
+        };
+
+        // إغلاق نافذة التحقق الأمني
+        window.closeAdminPasswordModal = function() {
+            const modal = document.getElementById('securePasswordModal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        };
+
+        // فتح نافذة التحقق الأمني
+        window.openAdminPasswordModal = function() {
+            const modal = document.getElementById('securePasswordModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                const input = document.getElementById('secureSecretInput');
+                if (input) input.focus();
+            }
+        };
+
+        // دالة إضافة تاجر جديد مع توليد معرف فريد
+        window.openMerchantModal = function() {
+            const name = prompt('اسم المتجر / التاجر الجديد:');
+            if (!name) return;
+            const id = 'MER-' + Math.floor(200 + Math.random() * 800);
+            const phone = prompt('رقم هاتف التاجر:');
+            
+            if (!db.merchants) db.merchants = [];
+            db.merchants.push({ id, name, phone: phone || '01000000000', dues: 0 });
+            
+            saveDB();
+            alert(`تم إضافة التاجر بنجاح برمز الدخول: ${id}`);
+            
+            if (typeof renderAdminDashboard === 'function') {
+                renderAdminDashboard();
+            }
+        };
+
+        // دالة تحديث العرض الحالي بناءً على الصفحة النشطة
+        function renderCurrentView() {
+            console.log("Safira Logistics OS Loaded Successfully. Current DB State:", db);
+        }
+
+        // تشغيل النظام عند تحميل الصفحة بالكامل
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDB();
+        });
     </script>
 </body>
 </html>
