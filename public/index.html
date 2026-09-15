@@ -573,30 +573,69 @@
             sel.innerHTML = db.merchants.map(m => `<option value="${m.id}">${m.name} (${m.id})</option>`).join('');
         }
 
-// دوال فتح وإغلاق الإدارة المحسنة
-        window.openAdminPasswordModal = function() {
-            const modal = document.getElementById('securePasswordModal') || document.querySelector('#secureSecretInput')?.closest('.fixed');
-            if (modal) {
-                modal.classList.remove('hidden');
-                modal.style.display = 'flex';
-                const input = document.getElementById('secureSecretInput');
+window.openAdminPasswordModal = function() {
+            // التحقق إذا كانت النافذة موجودة مسبقاً، وإلا قم بإنشائها
+            let modal = document.getElementById('dynamicAdminModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'dynamicAdminModal';
+                modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4';
+                modal.innerHTML = `
+                    <div class="bg-darkbg-800 border border-gold-500/50 rounded-2xl p-6 w-full max-w-sm text-center shadow-2xl relative">
+                        <button onclick="closeAdminPasswordModal()" class="absolute top-3 left-3 text-gray-400 hover:text-white text-xl">&times;</button>
+                        <h3 class="text-base font-black text-white mb-2">التحقق الأمني للإدارة</h3>
+                        <p class="text-xs text-gray-300 leading-relaxed mb-4">أدخل كلمة مرور الإدارة المركزية:</p>
+                        <input type="password" id="dynamicSecretInput" placeholder="••••••••••••" class="w-full bg-darkbg-900 border border-gold-500/40 rounded-xl px-4 py-2.5 text-center text-white tracking-widest focus:outline-none focus:border-gold-400 mb-4">
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="submitAdminPassword()" class="bg-gold-500 hover:bg-gold-600 text-darkbg-950 font-bold py-2.5 rounded-xl transition">دخول</button>
+                            <button onclick="closeAdminPasswordModal()" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition">إلغاء</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+            modal.style.display = 'flex';
+            setTimeout(() => {
+                const input = document.getElementById('dynamicSecretInput');
                 if (input) {
                     input.value = '';
                     input.focus();
                 }
-            } else {
-                console.error("لم يتم العثور على نافذة التحقق الأمني.");
-            }
+            }, 100);
         };
 
         window.closeAdminPasswordModal = function() {
-            const modal = document.getElementById('securePasswordModal') || document.querySelector('#secureSecretInput')?.closest('.fixed');
+            const modal = document.getElementById('dynamicAdminModal');
             if (modal) {
-                modal.classList.add('hidden');
                 modal.style.display = 'none';
             }
         };
 
+        window.submitAdminPassword = function() {
+            const input = document.getElementById('dynamicSecretInput');
+            if (input && input.value === '123456') { // كلمة المرور الافتراضية للإدارة، يمكنك تغييرها حسب نظامك
+                closeAdminPasswordModal();
+                // الانتقال لوحة التحكم الإدارية (تأكد من اسم دالة الإدارة لديك مثل showSection أو ما شابه)
+                if (typeof showSection === 'function') {
+                    showSection('admin');
+                } else {
+                    alert('تم التحقق بنجاح!');
+                }
+            } else {
+                alert('كلمة المرور غير صحيحة!');
+            }
+        };
+
+        // ربط الزر تلقائياً بعبارة "الإدارة المركزية" في أي مكان بالصفحة
+        document.addEventListener('DOMContentLoaded', () => {
+            document.body.addEventListener('click', (e) => {
+                const target = e.target.closest('div, button, a');
+                if (target && target.textContent.includes('الإدارة المركزية')) {
+                    e.preventDefault();
+                    window.openAdminPasswordModal();
+                }
+            });
+        });
         // ربط الزر تلقائياً بمجرد تحميل الصفحة لضمان الاستجابة حتى لو كان الـ onclick مفقوداً
         document.addEventListener('DOMContentLoaded', () => {
             // البحث عن بطاية أو زر الإدارة المركزية بالصفحة عبر النص أو الفئات
