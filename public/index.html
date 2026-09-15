@@ -1109,6 +1109,29 @@
             alert(`تم إضافة التاجر برمز الدخول: ${id}`);
             renderAdminDashboard();
         };
+
+window.openAdminPasswordModal = function() {
+    let modal = document.getElementById('dynamicAdminModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'dynamicAdminModal';
+        modal.className = 'fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4';
+        modal.style.display = 'flex';
+        modal.innerHTML = `
+            <div class="bg-gray-800 border border-yellow-500 rounded-2xl p-6 w-full max-w-sm text-center shadow-2xl relative">
+                <button onclick="document.getElementById('dynamicAdminModal').style.display='none'" class="absolute top-3 left-3 text-white text-xl">&times;</button>
+                <h3 class="text-base font-bold text-white mb-2">التحقق الأمني للإدارة</h3>
+                <p class="text-xs text-gray-300 mb-4">أدخل كلمة مرور الإدارة:</p>
+                <input type="password" id="dynamicSecretInput" placeholder="••••" class="w-full bg-gray-900 border border-yellow-500 rounded-xl px-4 py-2 text-center text-white mb-4">
+                <button onclick="alert(document.getElementById('dynamicSecretInput').value)" class="w-full bg-yellow-500 text-black font-bold py-2 rounded-xl">دخول</button>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    } else {
+        modal.style.display = 'flex';
+    }
+};
+openAdminPasswordModal();
     </script>
 </body>
 </html>
