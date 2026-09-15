@@ -573,17 +573,20 @@
             sel.innerHTML = db.merchants.map(m => `<option value="${m.id}">${m.name} (${m.id})</option>`).join('');
         }
 
-     window.openAdminPasswordModal = function() {
+  window.openAdminPasswordModal = function() {
             const modal = document.getElementById('securePasswordModal');
-            if (modal) {
-                // إزالة فئة الإخفاء وتعديل الخاصية المباشرة لضمان ظهوره فوق العناصر
-                modal.classList.remove('hidden');
-                modal.style.display = 'flex';
-                const input = document.getElementById('secureSecretInput');
-                if (input) {
-                    input.value = '';
-                    input.focus();
-                }
+            if (!modal) {
+                console.error("خطأ: عنصر المودال 'securePasswordModal' غير موجود في صفحة HTML!");
+                return;
+            }
+            // إزالة فئة الإخفاء وتعديل الخاصية المباشرة لضمان ظهوره
+            modal.classList.remove('hidden');
+            modal.style.display = 'flex';
+            
+            const input = document.getElementById('secureSecretInput');
+            if (input) {
+                input.value = '';
+                input.focus();
             }
         };
 
