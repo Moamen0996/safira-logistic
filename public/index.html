@@ -573,30 +573,34 @@
             sel.innerHTML = db.merchants.map(m => `<option value="${m.id}">${m.name} (${m.id})</option>`).join('');
         }
 
-  window.openAdminPasswordModal = function() {
-            const modal = document.getElementById('securePasswordModal');
-            if (!modal) {
-                console.error("خطأ: عنصر المودال 'securePasswordModal' غير موجود في صفحة HTML!");
-                return;
-            }
-            // إزالة فئة الإخفاء وتعديل الخاصية المباشرة لضمان ظهوره
-            modal.classList.remove('hidden');
-            modal.style.display = 'flex';
-            
+ window.openAdminPasswordModal = function() {
+            // البحث عن حقل الإدخال ومحاولة الوصول للنافذة المحيطة به
             const input = document.getElementById('secureSecretInput');
             if (input) {
+                // العثور على الحاوية الأب (الـ Modal Div) وإظهارها
+                const modal = input.closest('div.fixed') || input.parentElement.parentElement;
+                if (modal) {
+                    modal.classList.remove('hidden');
+                    modal.style.display = 'flex';
+                }
                 input.value = '';
                 input.focus();
+            } else {
+                console.error("لم يتم العثور على حقل الإدخال secureSecretInput");
             }
         };
 
         window.closeAdminPasswordModal = function() {
-            const modal = document.getElementById('securePasswordModal');
-            if (modal) {
-                modal.classList.add('hidden');
-                modal.style.display = 'none';
+            const input = document.getElementById('secureSecretInput');
+            if (input) {
+                const modal = input.closest('div.fixed') || input.parentElement.parentElement;
+                if (modal) {
+                    modal.classList.add('hidden');
+                    modal.style.display = 'none';
+                }
             }
         };
+        
         window.verifyAdminPassword = function() {
             const val = document.getElementById('secureSecretInput').value;
             if (val === 'safira2026') {
