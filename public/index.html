@@ -466,11 +466,11 @@
                 <i class="fa-solid fa-shield-halved"></i>
             </div>
             <h3 class="text-base font-black text-white">التحقق الأمني للإدارة</h3>
-            <p class="text-xs text-gray-300 leading-relaxed">أدخل كلمة المرور:</p>
+            <p class="text-xs text-gray-300 leading-relaxed">أدخل كلمة مرور الإدارة المركزية:</p>
             <input type="password" id="secureSecretInput" autocomplete="current-password" placeholder="••••••••••••" class="w-full bg-darkbg-900 border border-gold-500/40 rounded-xl px-4 py-2.5 text-center text-white tracking-widest focus:outline-none focus:border-gold-400">
             <div class="grid grid-cols-2 gap-2 pt-2">
                 <button type="button" onclick="window.closeAdminPasswordModal()" class="py-2.5 rounded-xl bg-gray-800 text-gray-300 font-bold text-xs hover:bg-gray-700 cursor-pointer">إلغاء</button>
-                <button type="button" onclick="window.verifyAdminPassword()" class="py-2.5 rounded-xl gold-gradient-bg text-black font-extrabold text-xs shadow hover:brightness-110 cursor-pointer">تحقق ودخول</button>
+                <button type="button" onclick="window.verifyAdminPassword()" class="py-2.5 rounded-xl gold-gradient-bg text-black font-extrabold text-xs shadow hover:brightness-110 cursor-pointer">دخول آمن</button>
             </div>
         </div>
     </div>
@@ -498,7 +498,6 @@
 
     <!-- Application Engine Script -->
     <script>
-        // Data Store Mock / LocalStorage Sync
         const DB_KEY = "SAFIRA_LOGISTICS_ENTERPRISE_DB";
         let db = {
             orders: [
@@ -529,13 +528,15 @@
             }
         }
 
-        // Initialize App on Load
         window.addEventListener('DOMContentLoaded', () => {
             loadDB();
             populateMerchantDropdowns();
             startAutoGPSUpdates();
-            document.getElementById('syncStatusBadge').classList.remove('hidden');
-       document.getElementById('syncStatusBadge').style.display = 'flex';
+            const badge = document.getElementById('syncStatusBadge');
+            if (badge) {
+                badge.classList.remove('hidden');
+                badge.style.display = 'flex';
+            }
         });
 
         function populateMerchantDropdowns() {
@@ -544,35 +545,45 @@
             sel.innerHTML = db.merchants.map(m => `<option value="${m.id}">${m.name} (${m.id})</option>`).join('');
         }
 
-        // Admin Security & Navigation
         window.openAdminPasswordModal = function() {
-            document.getElementById('securePasswordModal').classList.remove('hidden');
-            document.getElementById('securePasswordModal').style.display = 'flex';
-            document.getElementById('secureSecretInput').value = '';
-            document.getElementById('secureSecretInput').focus();
+            const modal = document.getElementById('securePasswordModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.style.display = 'flex';
+            }
+            const input = document.getElementById('secureSecretInput');
+            if (input) {
+                input.value = '';
+                input.focus();
+            }
         };
 
         window.closeAdminPasswordModal = function() {
-            document.getElementById('securePasswordModal').classList.add('hidden');
-            document.getElementById('securePasswordModal').style.display = 'none';
+            const modal = document.getElementById('securePasswordModal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.style.display = 'none';
+            }
         };
 
         window.verifyAdminPassword = function() {
-            const val = document.getElementById('secureSecretInput').value;
-            if (val === 'safira2026') {
-                closeAdminPasswordModal();
+            const passwordInput = document.getElementById('secureSecretInput');
+            const val = passwordInput ? passwordInput.value : '';
+            if (val === 'safira2026' || val === 'Safira2026Admin') {
+                window.closeAdminPasswordModal();
                 currentUser = { role: 'admin', name: 'الإدارة المركزية' };
                 updateHeaderAuthBadge();
                 showView('viewAdmin');
                 renderAdminDashboard();
             } else {
                 alert('كلمة المرور غير صحيحة!');
+                if (passwordInput) passwordInput.value = '';
             }
         };
 
-        // Delegate & Merchant Login
         window.loginDelegatePortal = function() {
-            const code = document.getElementById('loginDelegateCode').value.trim();
+            const codeInput = document.getElementById('loginDelegateCode');
+            const code = codeInput ? codeInput.value.trim() : '';
             const found = db.delegates.find(d => d.id === code);
             if (found) {
                 currentUser = { role: 'delegate', id: found.id, name: found.name };
@@ -585,7 +596,8 @@
         };
 
         window.loginMerchantPortal = function() {
-            const code = document.getElementById('loginMerchantCode').value.trim();
+            const codeInput = document.getElementById('loginMerchantCode');
+            const code = codeInput ? codeInput.value.trim() : '';
             const found = db.merchants.find(m => m.id === code);
             if (found) {
                 currentUser = { role: 'merchant', id: found.id, name: found.name };
@@ -607,10 +619,8 @@
         function updateHeaderAuthBadge() {
             const badge = document.getElementById('currentUserBadge');
             const logoutBtn = document.getElementById('btnLogoutNav');
-            badge.classList.remove('hidden');
-            badge.style.display = 'flex';
-            logoutBtn.classList.remove('hidden');
-            logoutBtn.style.display = 'flex';
+            if (badge) { badge.classList.remove('hidden'); badge.style.display = 'flex'; }
+            if (logoutBtn) { logoutBtn.classList.remove('hidden'); logoutBtn.style.display = 'flex'; }
             document.getElementById('currentUserName').innerText = currentUser.name;
             document.getElementById('currentUserRoleTag').innerText = currentUser.role.toUpperCase();
         }
@@ -630,7 +640,6 @@
             }
         }
 
-        // Admin Tabs Switcher
         window.switchAdminTab = function(tabName) {
             ['orders', 'instant', 'delegates', 'merchants', 'accounts'].forEach(t => {
                 const sec = document.getElementById(`adminTab${t.charAt(0).toUpperCase() + t.slice(1)}Section`);
@@ -648,7 +657,6 @@
             }
         };
 
-        // Render Admin Dashboard
         window.renderAdminDashboard = function() {
             const total = db.orders.length;
             const pending = db.orders.filter(o => o.status === 'قيد التوصيل').length;
@@ -672,8 +680,10 @@
 
         window.renderAdminOrders = function() {
             const tbody = document.getElementById('adminOrdersTableBody');
-            const search = document.getElementById('adminSearchInput').value.toLowerCase();
-            const statusFilter = document.getElementById('adminFilterStatus').value;
+            const searchInput = document.getElementById('adminSearchInput');
+            const search = searchInput ? searchInput.value.toLowerCase() : '';
+            const statusFilterEl = document.getElementById('adminFilterStatus');
+            const statusFilter = statusFilterEl ? statusFilterEl.value : '';
 
             const filtered = db.orders.filter(o => {
                 const matchSearch = o.id.toLowerCase().includes(search) || o.waybill.toLowerCase().includes(search) || o.custPhone.includes(search) || o.custName.toLowerCase().includes(search);
@@ -692,8 +702,8 @@
                     <td class="p-3 text-amber-400">${o.delegateId || 'غير مسند'}</td>
                     <td class="p-3"><span class="px-2 py-1 rounded-lg bg-darkbg-950 border border-gray-700 text-xs">${o.status}</span></td>
                     <td class="p-3 text-center space-x-1 space-x-reverse">
-                        <button onclick="window.printWaybill('${o.id}')" class="px-2.5 py-1 rounded-lg bg-blue-950 text-blue-300 border border-blue-800 hover:bg-blue-900 font-bold text-[10px]"><i class="fa-solid fa-print"></i> بوليصة</button>
-                        <button onclick="window.openWhatsApp('${o.custPhone}', '${o.id}')" class="px-2.5 py-1 rounded-lg bg-emerald-950 text-emerald-300 border border-emerald-800 hover:bg-emerald-900 font-bold text-[10px]"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
+                        <button onclick="window.printWaybill('${o.id}')" class="px-2.5 py-1 rounded-lg bg-blue-950 text-blue-300 border border-blue-800 hover:bg-blue-900 font-bold text-[10px] cursor-pointer"><i class="fa-solid fa-print"></i> بوليصة</button>
+                        <button onclick="window.openWhatsApp('${o.custPhone}', '${o.id}')" class="px-2.5 py-1 rounded-lg bg-emerald-950 text-emerald-300 border border-emerald-800 hover:bg-emerald-900 font-bold text-[10px] cursor-pointer"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
                     </td>
                 </tr>
             `).join('');
@@ -701,36 +711,35 @@
 
         window.renderAdminDelegates = function() {
             const tbody = document.getElementById('adminDelegatesTableBody');
+            if (!tbody) return;
             tbody.innerHTML = db.delegates.map(d => `
                 <tr class="hover:bg-darkbg-900 transition">
                     <td class="p-3 font-bold text-amber-400">${d.id}</td>
                     <td class="p-3 font-bold text-white">${d.name}</td>
                     <td class="p-3">${d.phone}</td>
                     <td class="p-3 font-mono text-emerald-400">Lat: ${d.lat.toFixed(4)}, Lng: ${d.lng.toFixed(4)}</td>
-                    <td class="p-3 text-center">
-                        <span class="text-[10px] text-gray-400">نشط ومحدث GPS تلقائياً</span>
-                    </td>
+                    <td class="p-3 text-center"><span class="text-[10px] text-gray-400">نشط ومحدث GPS تلقائياً</span></td>
                 </tr>
             `).join('');
         };
 
         window.renderAdminMerchants = function() {
             const tbody = document.getElementById('adminMerchantsTableBody');
+            if (!tbody) return;
             tbody.innerHTML = db.merchants.map(m => `
                 <tr class="hover:bg-darkbg-900 transition">
                     <td class="p-3 font-bold text-emerald-400">${m.id}</td>
                     <td class="p-3 font-bold text-white">${m.name}</td>
                     <td class="p-3">${m.phone}</td>
                     <td class="p-3 font-bold text-gold-400">${m.dues || 0} ج.م</td>
-                    <td class="p-3 text-center">
-                        <span class="text-[10px] text-gray-400">معتمد ومربوط</span>
-                    </td>
+                    <td class="p-3 text-center"><span class="text-[10px] text-gray-400">معتمد ومربوط</span></td>
                 </tr>
             `).join('');
         };
 
         window.renderAdminPayoutRequests = function() {
             const tbody = document.getElementById('adminPayoutRequestsTableBody');
+            if (!tbody) return;
             if (db.payouts.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-gray-400">لا توجد طلبات صرف مستحقات معلقة حالياً</td></tr>`;
                 return;
@@ -744,13 +753,12 @@
                     <td class="p-3 text-gray-300">${p.details}</td>
                     <td class="p-3"><span class="px-2 py-1 rounded bg-amber-950 text-amber-300 border border-amber-800 text-[10px]">${p.status}</span></td>
                     <td class="p-3 text-center">
-                        <button onclick="window.approvePayout(${idx})" class="px-3 py-1 rounded-lg bg-emerald-600 text-black font-bold text-xs hover:bg-emerald-500">اعتماد وصرف</button>
+                        <button onclick="window.approvePayout(${idx})" class="px-3 py-1 rounded-lg bg-emerald-600 text-black font-bold text-xs hover:bg-emerald-500 cursor-pointer">اعتماد وصرف</button>
                     </td>
                 </tr>
             `).join('');
         };
 
-        // Instant Order & Shipping Rates
         window.handleInstantOrderSubmit = function(e) {
             e.preventDefault();
             const merchantId = document.getElementById('instantMerchantId').value;
@@ -785,12 +793,12 @@
         window.saveCustomShippingRate = function() {
             const target = document.getElementById('pricingTargetSelect').value;
             const price = document.getElementById('newShippingPriceInput').value;
-            alert(`تم تحديث سعر الشحن الافتراضي لـ ${target} إلى ${price} ج.م بنجاح وحفظه في السيرفر السحابي.`);
+            alert(`تم تحديث سعر الشحن لـ ${target} إلى ${price} ج.م بنجاح وحفظه.`);
         };
 
-        // Delegate Portal Render & Updates
         function renderDelegatePortal() {
             const tbody = document.getElementById('delegateOrdersTableBody');
+            if (!tbody) return;
             const myOrders = db.orders.filter(o => o.delegateId === currentUser.id);
             document.getElementById('delegateWelcomeName').innerText = `مرحباً بك، الكابتن ${currentUser.name}`;
 
@@ -802,7 +810,7 @@
                     <td class="p-3 font-bold text-emerald-400">${o.amount} ج.م</td>
                     <td class="p-3"><span class="px-2 py-1 rounded bg-darkbg-950 border border-gray-700 text-xs">${o.status}</span></td>
                     <td class="p-3 text-center">
-                        <button onclick="window.printWaybill('${o.id}')" class="px-2 py-1 rounded bg-blue-950 text-blue-300 border border-blue-800 text-[10px] font-bold"><i class="fa-solid fa-print"></i> طباعة</button>
+                        <button onclick="window.printWaybill('${o.id}')" class="px-2 py-1 rounded bg-blue-950 text-blue-300 border border-blue-800 text-[10px] font-bold cursor-pointer"><i class="fa-solid fa-print"></i> طباعة</button>
                     </td>
                     <td class="p-3 text-center">
                         ${o.locked ? '<span class="text-rose-400 text-[10px] font-bold">تم التحديث مسبقاً (مغلق)</span>' : `
@@ -827,7 +835,7 @@
                     return;
                 }
                 order.status = newStatus;
-                order.locked = true; // قفل التعديل لمرة واحدة فقط
+                order.locked = true;
                 if (newStatus === 'تم التسليم') {
                     const merch = db.merchants.find(m => m.id === order.merchantId);
                     if (merch) {
@@ -835,14 +843,14 @@
                     }
                 }
                 saveDB();
-                alert(`تم تحديث حالة الشحنة ${orderId} إلى (${newStatus}) بنجاح وتم قفل التعديل.`);
+                alert(`تم تحديث حالة الشحنة ${orderId} إلى (${newStatus}) بنجاح.`);
                 renderDelegatePortal();
             }
         };
 
-        // Merchant Portal Render
         function renderMerchantPortal() {
             const tbody = document.getElementById('merchantOrdersTableBody');
+            if (!tbody) return;
             const myOrders = db.orders.filter(o => o.merchantId === currentUser.id);
             const merchantObj = db.merchants.find(m => m.id === currentUser.id);
             document.getElementById('merchantWelcomeName').innerText = `متجر: ${merchantObj ? merchantObj.name : currentUser.name} (المستحقات: ${merchantObj?.dues || 0} ج.م)`;
@@ -856,16 +864,15 @@
                     <td class="p-3 font-bold text-gold-400">${o.amount} ج.م</td>
                     <td class="p-3"><span class="px-2 py-1 rounded bg-darkbg-950 border border-gray-700 text-xs">${o.status}</span></td>
                     <td class="p-3 text-center">
-                        <button onclick="window.printWaybill('${o.id}')" class="px-2.5 py-1 rounded-lg bg-blue-950 text-blue-300 border border-blue-800 font-bold text-[10px]"><i class="fa-solid fa-print"></i> طباعة</button>
+                        <button onclick="window.printWaybill('${o.id}')" class="px-2.5 py-1 rounded-lg bg-blue-950 text-blue-300 border border-blue-800 font-bold text-[10px] cursor-pointer"><i class="fa-solid fa-print"></i> طباعة</button>
                     </td>
                     <td class="p-3 text-center">
-                        <button onclick="window.openWhatsApp('${o.custPhone}', '${o.id}')" class="px-2.5 py-1 rounded-lg bg-emerald-950 text-emerald-300 border border-emerald-800 font-bold text-[10px]"><i class="fa-brands fa-whatsapp"></i> مراسلة</button>
+                        <button onclick="window.openWhatsApp('${o.custPhone}', '${o.id}')" class="px-2.5 py-1 rounded-lg bg-emerald-950 text-emerald-300 border border-emerald-800 font-bold text-[10px] cursor-pointer"><i class="fa-brands fa-whatsapp"></i> مراسلة</button>
                     </td>
                 </tr>
             `).join('');
         }
 
-        // General Utilities: Waybill Printing & WhatsApp
         window.printWaybill = function(orderId) {
             const order = db.orders.find(o => o.id === orderId);
             if (!order) return;
@@ -902,7 +909,7 @@
                 status: 'معلق بانتظار الإدارة'
             });
             saveDB();
-            alert('تم إرسال طلب صرف المستحقات للإدارة بنجاح وستم مراجعته فوراً.');
+            alert('تم إرسال طلب صرف المستحقات للإدارة بنجاح وستتم مراجعته.');
         };
 
         window.approvePayout = function(idx) {
@@ -912,7 +919,6 @@
             renderAdminDashboard();
         };
 
-        // GPS Auto-Tracking Engine & Leaflet Map
         function startAutoGPSUpdates() {
             if (navigator.geolocation) {
                 navigator.geolocation.watchPosition(pos => {
@@ -949,7 +955,6 @@
             });
         }
 
-        // Modal placeholders for Add Order / Add Delegate / Add Merchant
         window.openOrderModal = function() {
             const name = prompt('اسم العميل الجديد:');
             if (!name) return;
@@ -999,138 +1004,6 @@
             alert(`تم إضافة التاجر برمز الدخول: ${id}`);
             renderAdminDashboard();
         };
-       <!-- Secure Password Modal -->
-    <div id="securePasswordModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden items-center justify-center p-4">
-        <div class="glass-panel p-6 rounded-3xl border border-gold-500/40 w-full max-w-sm space-y-4 shadow-2xl text-center">
-            <div class="w-12 h-12 rounded-2xl bg-gold-500/20 text-gold-400 flex items-center justify-center mx-auto text-xl">
-                <i class="fa-solid fa-shield-halved"></i>
-            </div>
-            <h3 class="text-base font-black text-white">التحقق الأمني للإدارة</h3>
-            <p class="text-xs text-gray-300 leading-relaxed">أدخل كلمة مرور الإدارة المركزية:</p>
-            <input type="password" id="secureSecretInput" autocomplete="current-password" placeholder="••••••••••••" class="w-full bg-darkbg-900 border border-gold-500/40 rounded-xl px-4 py-2.5 text-center text-white tracking-widest focus:outline-none focus:border-gold-400">
-            <div class="grid grid-cols-2 gap-2 pt-2">
-                <button type="button" onclick="window.closeAdminPasswordModal()" class="py-2.5 rounded-xl bg-gray-800 text-gray-300 font-bold text-xs hover:bg-gray-700 cursor-pointer">إلغاء</button>
-                <button type="button" onclick="window.verifyAdminPassword()" class="py-2.5 rounded-xl gold-gradient-bg text-black font-extrabold text-xs hover:brightness-110 cursor-pointer">دخول آمن</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Printable Waybill Hidden Container -->
-    <div id="printableWaybill" class="hidden"></div>
-
-    <!-- ضع كود الـ JavaScript المتكامل هنا -->
-    <script>
-        // تهيئة هيكل البيانات الأساسي (State) كاحتياطي أو كقاعدة افتراضية
-        let db = {
-            merchants: [],
-            orders: [],
-            agents: [],
-            settings: { companyName: "سفيرا للخدمات اللوجستية والشحن" }
-        };
-
-        // عنوان الخادم الأساسي (Backend URL على Railway أو محلياً)
-        const API_BASE_URL = window.location.hostname === 'localhost' 
-            ? 'http://localhost:5000/api' 
-            : 'https://your-railway-app-url.railway.app/api';
-
-        // جلب البيانات من قاعدة البيانات عند فتح التطبيق
-        async function loadDB() {
-            try {
-                const response = await fetch(`${API_BASE_URL}/data`);
-                if (response.ok) {
-                    const data = await response.json();
-                    db = data;
-                    console.log("تم تحميل البيانات بنجاح من قاعدة البيانات السحابية.");
-                }
-            } catch (error)  {
-                console.warn("تعذر الاتصال الخادم، يتم الاعتماد على التخزين المحلي المؤقت.", error);
-                const localData = localStorage.getItem('safira_db');
-                if (localData) db = JSON.parse(localData);
-            }
-            renderCurrentView();
-        }
-
-        // حفظ وتحديث البيانات في الخادم وقاعدة البيانات
-        async function saveDB() {
-            localStorage.setItem('safira_db', JSON.stringify(db));
-            try {
-                await fetch(`${API_BASE_URL}/data`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(db)
-                });
-            } catch (error) {
-                console.error("فشل المزامنة الفورية مع قاعدة البيانات:", error);
-            }
-        }
-
-        // التحقق الأمني للإدارة المركزية
-        window.verifyAdminPassword = function() {
-            const passwordInput = document.getElementById('secureSecretInput');
-            const password = passwordInput ? passwordInput.value : '';
-            const ADMIN_SECRET = "Safira2026Admin"; 
-
-            if (password === ADMIN_SECRET) {
-                if (window.closeAdminPasswordModal) window.closeAdminPasswordModal();
-                alert("تم التحقق بنجاح! مرحباً بك في لوحة تحكم الإدارة المركزية.");
-                if (typeof showAdminDashboard === 'function') {
-                    showAdminDashboard();
-                } else {
-                    console.log("Admin Authorized.");
-                }
-            } else {
-                alert("كلمة المرور غير صحيحة! حاول مرة أخرى.");
-                if (passwordInput) passwordInput.value = '';
-            }
-        };
-
-        // إغلاق نافذة التحقق الأمني
-        window.closeAdminPasswordModal = function() {
-            const modal = document.getElementById('securePasswordModal');
-            if (modal) {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-            }
-        };
-
-        // فتح نافذة التحقق الأمني
-        window.openAdminPasswordModal = function() {
-            const modal = document.getElementById('securePasswordModal');
-            if (modal) {
-                modal.classList.remove('hidden');
-                modal.classList.add('flex');
-                const input = document.getElementById('secureSecretInput');
-                if (input) input.focus();
-            }
-        };
-
-        // دالة إضافة تاجر جديد مع توليد معرف فريد
-        window.openMerchantModal = function() {
-            const name = prompt('اسم المتجر / التاجر الجديد:');
-            if (!name) return;
-            const id = 'MER-' + Math.floor(200 + Math.random() * 800);
-            const phone = prompt('رقم هاتف التاجر:');
-            
-            if (!db.merchants) db.merchants = [];
-            db.merchants.push({ id, name, phone: phone || '01000000000', dues: 0 });
-            
-            saveDB();
-            alert(`تم إضافة التاجر بنجاح برمز الدخول: ${id}`);
-            
-            if (typeof renderAdminDashboard === 'function') {
-                renderAdminDashboard();
-            }
-        };
-
-        // دالة تحديث العرض الحالي بناءً على الصفحة النشطة
-        function renderCurrentView() {
-            console.log("Safira Logistics OS Loaded Successfully. Current DB State:", db);
-        }
-
-        // تشغيل النظام عند تحميل الصفحة بالكامل
-        document.addEventListener('DOMContentLoaded', () => {
-            loadDB();
-        });
     </script>
 </body>
 </html>
