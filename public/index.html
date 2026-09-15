@@ -533,6 +533,28 @@
             }
         }
 
+   const API_URL = "https://safira-logistic-production.up.railway.app"
+        
+
+        let currentUser = null;
+        let mapInstance = null;
+
+        async function saveDB() {
+            // حفظ نسخة احتياطية محلياً
+            localStorage.setItem(DB_KEY, JSON.stringify(db));
+            
+            // حفظ البيانات سحابياً على MongoDB عبر سيرفر Railway
+            try {
+                await fetch(`${API_URL}/data`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(db)
+                });
+            } catch (e) {
+                console.error("Failed to sync with cloud server", e);
+            }
+        }
+
         async function loadDB() {
             try {
                 const response = await fetch(`${API_URL}/data`);
@@ -547,6 +569,7 @@
                 console.log("Using local fallback due to network error", e);
             }
             
+            // قراءة من التخزين المحلي في حال تعذر الاتصال بالسيرفر
             const data = localStorage.getItem(DB_KEY);
             if (data) {
                 try { db = JSON.parse(data); } catch(e){}
@@ -554,7 +577,7 @@
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
-            await loadDB();
+            await loadDB(); // جلب البيانات من السحابة أولاً
             populateMerchantDropdowns();
             startAutoGPSUpdates();
             const badge = document.getElementById('syncStatusBadge');
@@ -563,7 +586,6 @@
                 badge.style.display = 'flex';
             }
         });
-
         function populateMerchantDropdowns() {
             const sel = document.getElementById('instantMerchantId');
             if (!sel) return;
