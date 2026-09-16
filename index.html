@@ -568,11 +568,48 @@ async function saveOrderToServer(orderData) {
                 updateUIAll();
             }
         };
+// متغير لمعرفة ما إذا كان المستخدم يقوم بكتابة شيء حالياً لتجنب مسحه
+        let isUserInteracting = false;
 
         window.addEventListener('DOMContentLoaded', () => {
             loadDB();
+            
+            // تحديث البيانات في الخلفية كل 5 ثوانٍ بصمت
+            setInterval(async () => {
+                try {
+                    const response = await fetch('/api/data');
+                    const serverData = await response.json();
+                    if (serverData && Object.keys(serverData).length > 0) {
+                        // تحديث بيانات الـ db فقط إذا لم يكن هناك تفاعل حالي (مثل كتابة نموذج)
+                        if (!isUserInteracting) {
+                            let hasChanges = JSON.stringify(db) !== JSON.stringify(serverData);
+                            db = { ...db, ...serverData };
+                            if (hasChanges) {
+                                updateUIAll(); // تحديث الواجهة فقط عند وجود تغيير حقيقي من أجهزة أخرى
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.error('خطأ في التحديث الدوري:', err);
+                }
+            }, 5000);
+
             startAutoGPSUpdates();
         });
+
+        // دالة أساسية لجلب البيانات عند فتح الصفحة لأول مرة
+        async function loadDB() {
+            try {
+                const response = await fetch('/api/data');
+                const serverData = await response.json();
+                if (serverData && Object.keys(serverData).length > 0) {
+                    db = { ...db, ...serverData };
+                }
+                updateUIAll();
+            } catch (err) {
+                console.error('خطأ في جلب البيانات من السيرفر:', err);
+            }
+        }
 
         function updateUIAll() {
             if (currentUser) {
@@ -580,6 +617,7 @@ async function saveOrderToServer(orderData) {
                 if (currentUser.role === 'delegate') renderDelegatePortal();
                 if (currentUser.role === 'merchant') renderMerchantPortal();
             }
+        }
         }
 
         // مودال تسجيل التاجر الفوري بدون كلمة مرور
