@@ -321,12 +321,14 @@
                     </div>
                 </div>
 
-                <div class="glass-panel p-6 rounded-3xl border border-gold-500/30 space-y-4">
-                    <h3 class="font-extrabold text-gold-400 text-sm flex items-center gap-2">
-                        <i class="fa-solid fa-map-location-dot"></i> خريطة التتبع اللحظي المباشر للمناديب
-                    </h3>
-                    <div id="adminLiveMap" style="height: 350px; width: 100%;" class="rounded-2xl border border-gray-700 z-10"></div>
-                </div>
+             <!-- قسم تتبع المناديب في لوحة تحكم المدير -->
+<div id="adminLiveTrackingSection" class="p-4 bg-gray-900 rounded-xl shadow-lg mt-6">
+    <h3 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+        <i class="fa-solid fa-map-location-dot"></i> خريطة التتبع اللحظي المباشر للمناديب
+    </h3>
+    <!-- ✅ مكان العنصر الذي ستحتضن الخريطة -->
+    <div id="adminLiveMap" style="height: 350px; width: 100%;" class="rounded-2xl border border-gray-700 z-10"></div>
+</div>
             </div>
 
             <!-- Admin Tab: Merchants -->
