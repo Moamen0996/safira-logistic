@@ -1,11 +1,10 @@
-HTML
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <link rel="icon" href="data:,">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>سفيرا لوجستيك - النظام اللوجستي السحابي المتقدم</title>
+    <title>سفيرا لوجستيك - النظام اللوجستي المتقدم</title>
     
     <!-- Tailwind CSS & FontAwesome -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -534,55 +533,32 @@ HTML
 
         let currentUser = null;
         let mapInstance = null;
+        const syncChannel = new BroadcastChannel('SAFIRA_LOGISTICS_CHANNEL');
 
-        // نظام تخزين ومزامنة سحابي عبر JSONBin المجاني المدمج لضمان عمل التطبيق بدون أخطاء 500
-        const JSONBIN_URL = "https://api.jsonbin.io/v3/b/65f002b2dc74654018b14e3b"; // Bin افتراضي للمشروع
-        const JSONBIN_KEY = "$2a$10$7Z2...X"; // مفتاح آمن افتراضي
-
-        async function saveDB() {
+        function saveDB() {
             localStorage.setItem(DB_KEY, JSON.stringify(db));
-            try {
-                // حفظ فوري محلياً ومحاولة مزامنة سحابية هادئة بدون إزعاج المستخدم
-                await fetch(JSONBIN_URL, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Master-Key': JSONBIN_KEY
-                    },
-                    body: JSON.stringify(db)
-                });
-            } catch (e) {
-                // يعمل بسلاسة تامة أوقات انقطاع الانترنت
-            }
+            syncChannel.postMessage({ type: 'DB_UPDATE', payload: db });
         }
 
-        async function loadDB() {
-            try {
-                const response = await fetch(JSONBIN_URL, {
-                    headers: { 'X-Master-Key': JSONBIN_KEY }
-                });
-                if (response.ok) {
-                    const resJson = await response.json();
-                    if (resJson && resJson.record && resJson.record.orders) {
-                        db = resJson.record;
-                    }
-                }
-            } catch (e) {
-                const local = localStorage.getItem(DB_KEY);
-                if (local) {
-                    try { db = JSON.parse(local); } catch(err){}
-                }
+        function loadDB() {
+            const local = localStorage.getItem(DB_KEY);
+            if (local) {
+                try {
+                    db = JSON.parse(local);
+                } catch(e){}
             }
             updateUIAll();
         }
 
-        window.addEventListener('DOMContentLoaded', async () => {
-            const local = localStorage.getItem(DB_KEY);
-            if (local) {
-                try { db = JSON.parse(local); } catch(e){}
+        syncChannel.onmessage = (event) => {
+            if (event.data && event.data.type === 'DB_UPDATE') {
+                db = event.data.payload;
+                updateUIAll();
             }
-            await loadDB(); 
-            setInterval(loadDB, 5000); // مزامنة حية كل 5 ثوانٍ بين الأجهزة
+        };
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadDB();
             startAutoGPSUpdates();
         });
 
@@ -1111,7 +1087,7 @@ HTML
             if (!db.orders) db.orders = [];
             db.orders.unshift(newOrd);
             saveDB();
-            alert('تم إضافة الشحنة بنجاح ومزامنتها على السحابة بين جميع الأجهزة!');
+            alert('تم إضافة الشحنة بنجاح وحفظها محلياً.');
             updateUIAll();
         };
 
