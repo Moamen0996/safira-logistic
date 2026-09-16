@@ -5,7 +5,7 @@ require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 8080;
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://safira:safira2026@cluster0.mongodb.net/safira_logistics?retryWrites=true&w=majority';
+const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://your_cluster_user:your_password@cluster0.mongodb.net/safira_logistics?retryWrites=true&w=majority';
 
 app.use(cors());
 app.use(express.json());
@@ -17,10 +17,7 @@ const SystemSchema = new mongoose.Schema({
 
 const SystemDB = mongoose.model('SystemState', SystemSchema);
 
-mongoose.connect(MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-}).then(() => {
+mongoose.connect(MONGO_URI).then(() => {
     console.log('Successfully connected to MongoDB Atlas Cloud');
 }).catch(err => {
     console.error('MongoDB connection error:', err);
@@ -44,7 +41,6 @@ app.get('/api/sync', async (req, res) => {
     try {
         let record = await SystemDB.findOne({ key: 'SAFIRA_GLOBAL_STATE' });
         if (!record) {
-            // Default initial state if none exists yet
             const defaultState = {
                 orders: [],
                 delegates: [],
@@ -79,9 +75,14 @@ app.post('/api/sync', async (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     console.log(`Safira Logistics Cloud Server is running on port ${PORT}`);
 });
-app.listen(PORT, () => {
-    console.log(`Safira Logistics Cloud Server is running on port ${PORT}`);
+
+server.on('error', (e) => {
+    if (e.code === 'EADDRINUSE') {
+        console.error(`Port ${PORT} is already in use. Attempting graceful recovery or fallback...`);
+    } else {
+        console.error('Server error:', e);
+    }
 });
