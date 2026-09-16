@@ -736,7 +736,11 @@
 
         window.renderAdminDelegates = function() {
             const tbody = document.getElementById('adminDelegatesTableBody');
-            tbody.innerHTML = db.delegates.map(d => `
+if (tbody) {
+    tbody.innerHTML = (db.delegates || []).map(d => `
+        <!-- باقي كود الصفوف (HTML) كما هو لديك -->
+    `).join('');
+}
                 <tr class="hover:bg-darkbg-900 transition">
                     <td class="p-3 font-bold text-amber-400">${d.id}</td>
                     <td class="p-3 font-bold text-white">${d.name}</td>
