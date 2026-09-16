@@ -1,17 +1,17 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const path = require('path'); // أضفنا مكتبة المسارات
+const path = require('path');
 const app = express();
 
 app.use(express.json({ limit: '10mb' }));
 app.use(cors());
 
-// السماح لقراءة ملفات الواجهة الأمامية الموجودة في نفس المستودع (إذا كانت في مجلد الجذر أو مجلد public)
+// السماح بقراءة ملفات الواجهة الأمامية الموجودة في نفس المستودع
 app.use(express.static(__dirname)); 
 
 // 1. الاتصال بقاعدة البيانات مباشرة
-mongoose.connect("mongodb+srv://moamenbeliever_db_user:MOAMENBELIEVER172096@cluster0.yucaqm0.mongodb.net/?appName=Cluster0")
+mongoose.connect("mongodb+srv://moamenbeliever_db_user:moamenbeliever172096@cluster0.yucaqm0.mongodb.net/?appName=Cluster0")
   .then(() => console.log("Database connected successfully"))
   .catch(err => console.error("Database connection error:", err));
 
@@ -23,28 +23,11 @@ const systemStateSchema = new mongoose.Schema({
 
 const SystemState = mongoose.model('SystemState', systemStateSchema);
 
-// 2. مسارات البيانات (GET)
+// 2. مسار جلب البيانات (GET) - تم تعريفه مرة واحدة فقط وبشكل آمن
 const handleGetData = async (req, res) => {
   try {
     let state = await SystemState.findOne({ key: "main_db" });
     if (!state) {
-      state = { data: { orders: [], merchants: [] } };
-    }
-    res.json(state.data);
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-};
-
-app.get('/api/data', handleGetData);
-app.get('/data', handleGetData);
-
-// 2. مسارات البيانات (GET) مع حماية ضد الخطأ 500
-const handleGetData = async (req, res) => {
-  try {
-    let state = await SystemState.findOne({ key: "main_db" });
-    if (!state) {
-      // إرجاع هيكل بيانات افتراضي فارغ بدلاً من إعطاء خطأ
       return res.json({ orders: [], merchants: [], merchantRequests: [] });
     }
     res.json(state.data);
@@ -57,10 +40,26 @@ const handleGetData = async (req, res) => {
 app.get('/api/data', handleGetData);
 app.get('/data', handleGetData);
 
+// 3. مسار حفظ البيانات (POST)
+const handlePostData = async (req, res) => {
+  try {
+    const newData = req.body;
+    await SystemState.findOneAndUpdate(
+      { key: "main_db" },
+      { data: newData, updatedAt: Date.now },
+      { upsert: true, new: true }
+    );
+    res.json({ success: true, message: "تم حفظ البيانات بنجاح" });
+  } catch (err) {
+    console.error("خطأ في حفظ البيانات:", err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
 app.post('/api/data', handlePostData);
 app.post('/data', handlePostData);
 
-// مسار تسجيل التجار الجدد الذي طلبناه مسبقاً
+// 4. مسار تسجيل التجار الجدد
 app.post('/api/merchant-requests', async (req, res) => {
   try {
     const merchantRequest = req.body;
