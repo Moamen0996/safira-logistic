@@ -1,8 +1,10 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const cors = require('cors');
 const app = express();
 
 app.use(express.json({ limit: '10mb' }));
+app.use(cors()); // تفعيل الـ CORS لمنع أي حظر من المتصفح
 
 // 1. الاتصال بقاعدة البيانات
 mongoose.connect(process.env.MONGO_URI)
@@ -17,7 +19,7 @@ const systemStateSchema = new mongoose.Schema({
 
 const SystemState = mongoose.model('SystemState', systemStateSchema);
 
-// 2. مسارات شاملة لتغطية أي احتمال قد يطلبه المتصفح (GET)
+// 2. مسارات شاملة لجلب البيانات (GET)
 const handleGetData = async (req, res) => {
   try {
     let state = await SystemState.findOne({ key: "main_db" });
@@ -34,7 +36,7 @@ app.get('/api/data', handleGetData);
 app.get('/data', handleGetData);
 app.get('/api/api/data', handleGetData);
 
-// 3. مسارات شاملة لتغطية الحفظ (POST)
+// 3. مسارات شاملة لحفظ البيانات (POST)
 const handlePostData = async (req, res) => {
   try {
     const newData = req.body;
