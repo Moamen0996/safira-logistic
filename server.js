@@ -39,20 +39,23 @@ const handleGetData = async (req, res) => {
 app.get('/api/data', handleGetData);
 app.get('/data', handleGetData);
 
-// 3. مسارات حفظ البيانات (POST)
-const handlePostData = async (req, res) => {
+// 2. مسارات البيانات (GET) مع حماية ضد الخطأ 500
+const handleGetData = async (req, res) => {
   try {
-    const newData = req.body;
-    await SystemState.findOneAndUpdate(
-      { key: "main_db" },
-      { data: newData, updatedAt: Date.now },
-      { upsert: true, new: true }
-    );
-    res.json({ success: true, message: "تم حفظ البيانات بنجاح" });
+    let state = await SystemState.findOne({ key: "main_db" });
+    if (!state) {
+      // إرجاع هيكل بيانات افتراضي فارغ بدلاً من إعطاء خطأ
+      return res.json({ orders: [], merchants: [], merchantRequests: [] });
+    }
+    res.json(state.data);
   } catch (err) {
+    console.error("خطأ في جلب البيانات:", err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 };
+
+app.get('/api/data', handleGetData);
+app.get('/data', handleGetData);
 
 app.post('/api/data', handlePostData);
 app.post('/data', handlePostData);
