@@ -536,14 +536,13 @@
             }
         }
 
-     async function loadDB() {
+ async function loadDB() {
     try {
         const targetUrl = (typeof API_URL !== 'undefined' && API_URL) ? `${API_URL}/data` : '/data';
         
         const response = await fetch(targetUrl);
         if (response.ok) {
             const serverData = await response.json();
-            // تم تعديل الشرط هنا ليقبل بيانات السيرفر حتى لو كانت المصفوفات فارغة أو جديدة
             if (serverData) {
                 db = serverData;
                 console.log("تم تحديث البيانات من السيرفر بنجاح", db);
@@ -559,26 +558,27 @@
     }
 }
 
-        window.addEventListener('DOMContentLoaded', async () => {
-            await loadDB(); 
-            populateMerchantDropdowns();
-            startAutoGPSUpdates();
-            const badge = document.getElementById('syncStatusBadge');
-            if (badge) {
-                badge.classList.remove('hidden');
-                badge.style.display = 'flex';
-            }
-        });
+window.addEventListener('DOMContentLoaded', async () => {
+    await loadDB(); 
+    populateMerchantDropdowns();
+    if (typeof startAutoGPSUpdates === 'function') startAutoGPSUpdates();
+    const badge = document.getElementById('syncStatusBadge');
+    if (badge) {
+        badge.classList.remove('hidden');
+        badge.style.display = 'flex';
+    }
+});
 
-        function populateMerchantDropdowns() {
-            const sel = document.getElementById('instantMerchantId');
-            if (!sel) return;
-            sel.innerHTML = db.merchants.map(m => `<option value="${m.id}">${m.name} (${m.id})</option>`).join('');
-        }
+function populateMerchantDropdowns() {
+    const sel = document.getElementById('instantMerchantId');
+    if (!sel) return;
+    // تم إضافة الحماية هنا لتجنب الانهيار إذا كانت القائمة فارغة
+    sel.innerHTML = (db.merchants || []).map(m => `<option value="${m.id}">${m.name} (${m.id})</option>`).join('');
+}
 
-       لى window لضمان عمل الأزرار عليها فوراً
+// تعريف دالة فتح نافذة المدير وربطها بـ window لضمان عمل الأزرار فوراً
 window.openAdminPasswordModal = function() {
-    const modal = document.getElementById('adminPasswordModal'); // أو اسم الـ Modal لديك
+    const modal = document.getElementById('adminPasswordModal');
     if (modal) {
         modal.classList.remove('hidden');
         modal.style.display = 'flex';
@@ -586,7 +586,6 @@ window.openAdminPasswordModal = function() {
         console.error("لم يتم العثور على عنصر modal الخاص بكلمة المرور");
     }
 };
-        };
 
         window.closeAdminPasswordModal = function() {
             const modal = document.getElementById('securePasswordModal');
