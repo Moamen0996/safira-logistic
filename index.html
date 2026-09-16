@@ -8,6 +8,7 @@
     
     <!-- PWA & Enterprise Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Safira Logistics">
     <meta name="theme-color" content="#030712">
@@ -233,7 +234,7 @@
                                 <th class="p-3">المبلغ والشحن</th>
                                 <th class="p-3">المندوب</th>
                                 <th class="p-3">الحالة</th>
-                                <th class="p-3 text-center">الإجراءات والواتساب وطباعة البوليصة</th>
+                                <th class="p-3 text-center">الإجراءات والواتساب وطباعة البوليصة والحذف</th>
                             </tr>
                         </thead>
                         <tbody id="adminOrdersTableBody" class="divide-y divide-gray-800 text-gray-200"></tbody>
@@ -313,7 +314,7 @@
                                     <th class="p-3">اسم المندوب</th>
                                     <th class="p-3">الهاتف</th>
                                     <th class="p-3">إحداثيات الـ GPS المحدثة تلقائياً</th>
-                                    <th class="p-3 text-center">الإجراءات الآمنة</th>
+                                    <th class="p-3 text-center">الإجراءات الآمنة والحذف</th>
                                 </tr>
                             </thead>
                             <tbody id="adminDelegatesTableBody" class="divide-y divide-gray-800 text-gray-200"></tbody>
@@ -321,16 +322,15 @@
                     </div>
                 </div>
 
-             <!-- قسم تتبع المناديب في لوحة تحكم المدير -->
-<div id="adminLiveTrackingSection" class="p-4 bg-gray-900 rounded-xl shadow-lg mt-6">
-    <h3 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
-        <i class="fa-solid fa-map-location-dot"></i> خريطة التتبع اللحظي المباشر للمناديب
-    </h3>
-    <!-- ✅ مكان العنصر الذي ستحتضن الخريطة -->
-    <div id="adminLiveMap" style="height: 350px; width: 100%;" class="rounded-2xl border border-gray-700 z-10"></div>
-</div>
+                <!-- قسم تتبع المناديب في لوحة تحكم المدير -->
+                <div id="adminLiveTrackingSection" class="p-4 bg-gray-900 rounded-xl shadow-lg mt-6">
+                    <h3 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-map-location-dot"></i> خريطة التتبع اللحظي المباشر للمناديب
+                    </h3>
+                    <div id="adminLiveMap" style="height: 350px; width: 100%;" class="rounded-2xl border border-gray-700 z-10"></div>
+                </div>
             </div>
-</div>
+
             <!-- Admin Tab: Merchants -->
             <div id="adminTabMerchantsSection" class="hidden glass-panel p-6 rounded-3xl border border-gold-500/30 space-y-4">
                 <div class="flex justify-between items-center">
@@ -347,7 +347,7 @@
                                 <th class="p-3">اسم المتجر</th>
                                 <th class="p-3">الهاتف</th>
                                 <th class="p-3">المستحقات</th>
-                                <th class="p-3 text-center">الإجراءات الأمنية</th>
+                                <th class="p-3 text-center">الإجراءات الأمنية والحذف</th>
                             </tr>
                         </thead>
                         <tbody id="adminMerchantsTableBody" class="divide-y divide-gray-800 text-gray-200"></tbody>
@@ -522,7 +522,7 @@
         let currentUser = null;
         let mapInstance = null;
 
-        // دالة حفظ البيانات على السيرفر وسقوط آمن محلياً (Save DB)
+        // دالة حفظ البيانات على السيرفر وسقوط آمن محلياً
         async function saveDB() {
             localStorage.setItem(DB_KEY, JSON.stringify(db));
             try {
@@ -536,56 +536,51 @@
             }
         }
 
- async function loadDB() {
-    try {
-        const targetUrl = (typeof API_URL !== 'undefined' && API_URL) ? `${API_URL}/data` : '/data';
-        
-        const response = await fetch(targetUrl);
-        if (response.ok) {
-            const serverData = await response.json();
-            if (serverData) {
-                db = serverData;
-                console.log("تم تحديث البيانات من السيرفر بنجاح", db);
-                
-                if (typeof updateUI === 'function') updateUI();
-                if (typeof renderOrders === 'function') renderOrders();
-                
-                return;
+        async function loadDB() {
+            try {
+                const targetUrl = (typeof API_URL !== 'undefined' && API_URL) ? `${API_URL}/data` : '/data';
+                const response = await fetch(targetUrl);
+                if (response.ok) {
+                    const serverData = await response.json();
+                    if (serverData) {
+                        db = serverData;
+                        console.log("تم تحديث البيانات من السيرفر بنجاح", db);
+                        if (typeof updateUI === 'function') updateUI();
+                        if (typeof renderOrders === 'function') renderOrders();
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.log("جاري إعادة المحاولة للاتصال بالسيرفر...", e);
             }
         }
-    } catch (e) {
-        console.log("جاري إعادة المحاولة للاتصال بالسيرفر...", e);
-    }
-}
 
-window.addEventListener('DOMContentLoaded', async () => {
-    await loadDB(); 
-    populateMerchantDropdowns();
-    if (typeof startAutoGPSUpdates === 'function') startAutoGPSUpdates();
-    const badge = document.getElementById('syncStatusBadge');
-    if (badge) {
-        badge.classList.remove('hidden');
-        badge.style.display = 'flex';
-    }
-});
+        window.addEventListener('DOMContentLoaded', async () => {
+            await loadDB(); 
+            populateMerchantDropdowns();
+            if (typeof startAutoGPSUpdates === 'function') startAutoGPSUpdates();
+            const badge = document.getElementById('syncStatusBadge');
+            if (badge) {
+                badge.classList.remove('hidden');
+                badge.style.display = 'flex';
+            }
+        });
 
-function populateMerchantDropdowns() {
-    const sel = document.getElementById('instantMerchantId');
-    if (!sel) return;
-    // تم إضافة الحماية هنا لتجنب الانهيار إذا كانت القائمة فارغة
-    sel.innerHTML = (db.merchants || []).map(m => `<option value="${m.id}">${m.name} (${m.id})</option>`).join('');
-}
+        function populateMerchantDropdowns() {
+            const sel = document.getElementById('instantMerchantId');
+            if (!sel) return;
+            sel.innerHTML = (db.merchants || []).map(m => `<option value="${m.id}">${m.name} (${m.id})</option>`).join('');
+        }
 
-// تعريف دالة فتح نافذة المدير وربطها بـ window لضمان عمل الأزرار فوراً
-window.openAdminPasswordModal = function() {
-    const modal = document.getElementById('adminPasswordModal');
-    if (modal) {
-        modal.classList.remove('hidden');
-        modal.style.display = 'flex';
-    } else {
-        console.error("لم يتم العثور على عنصر modal الخاص بكلمة المرور");
-    }
-};
+        window.openAdminPasswordModal = function() {
+            const modal = document.getElementById('securePasswordModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.style.display = 'flex';
+            } else {
+                console.error("لم يتم العثور على عنصر modal الخاص بكلمة المرور");
+            }
+        };
 
         window.closeAdminPasswordModal = function() {
             const modal = document.getElementById('securePasswordModal');
@@ -610,7 +605,7 @@ window.openAdminPasswordModal = function() {
 
         window.loginDelegatePortal = function() {
             const code = document.getElementById('loginDelegateCode').value.trim();
-            const found = db.delegates.find(d => d.id === code);
+            const found = (db.delegates || []).find(d => d.id === code);
             if (found) {
                 currentUser = { role: 'delegate', id: found.id, name: found.name };
                 updateHeaderAuthBadge();
@@ -623,7 +618,7 @@ window.openAdminPasswordModal = function() {
 
         window.loginMerchantPortal = function() {
             const code = document.getElementById('loginMerchantCode').value.trim();
-            const found = db.merchants.find(m => m.id === code);
+            const found = (db.merchants || []).find(m => m.id === code);
             if (found) {
                 currentUser = { role: 'merchant', id: found.id, name: found.name };
                 updateHeaderAuthBadge();
@@ -685,12 +680,12 @@ window.openAdminPasswordModal = function() {
         };
 
         window.renderAdminDashboard = function() {
-            const total = db.orders.length;
-            const pending = db.orders.filter(o => o.status === 'قيد التوصيل').length;
-            const delivered = db.orders.filter(o => o.status === 'تم التسليم').length;
-            const returned = db.orders.filter(o => o.status === 'مرتجع' || o.status === 'تم الرفض').length;
-            const totalAmount = db.orders.reduce((acc, o) => acc + (o.status === 'تم التسليم' ? o.amount : 0), 0);
-            const netProfit = db.orders.reduce((acc, o) => acc + (o.status === 'تم التسليم' ? o.shipping : 0), 0);
+            const total = (db.orders || []).length;
+            const pending = (db.orders || []).filter(o => o.status === 'قيد التوصيل').length;
+            const delivered = (db.orders || []).filter(o => o.status === 'تم التسليم').length;
+            const returned = (db.orders || []).filter(o => o.status === 'مرتجع' || o.status === 'تم الرفض').length;
+            const totalAmount = (db.orders || []).reduce((acc, o) => acc + (o.status === 'تم التسليم' ? o.amount : 0), 0);
+            const netProfit = (db.orders || []).reduce((acc, o) => acc + (o.status === 'تم التسليم' ? o.shipping : 0), 0);
 
             document.getElementById('statTotalOrders').innerText = total;
             document.getElementById('statPendingOrders').innerText = pending;
@@ -710,7 +705,7 @@ window.openAdminPasswordModal = function() {
             const search = document.getElementById('adminSearchInput').value.toLowerCase();
             const statusFilter = document.getElementById('adminFilterStatus').value;
 
-            const filtered = db.orders.filter(o => {
+            const filtered = (db.orders || []).filter(o => {
                 const matchSearch = o.id.toLowerCase().includes(search) || o.waybill.toLowerCase().includes(search) || o.custPhone.includes(search) || o.custName.toLowerCase().includes(search);
                 const matchStatus = statusFilter === '' || o.status === statusFilter;
                 return matchSearch && matchStatus;
@@ -727,8 +722,9 @@ window.openAdminPasswordModal = function() {
                     <td class="p-3 text-amber-400">${o.delegateId || 'غير مسند'}</td>
                     <td class="p-3"><span class="px-2 py-1 rounded-lg bg-darkbg-950 border border-gray-700 text-xs">${o.status}</span></td>
                     <td class="p-3 text-center space-x-1 space-x-reverse">
-                        <button onclick="window.printWaybill('${o.id}')" class="px-2.5 py-1 rounded-lg bg-blue-950 text-blue-300 border border-blue-800 hover:bg-blue-900 font-bold text-[10px]"><i class="fa-solid fa-print"></i> بوليصة</button>
-                        <button onclick="window.openWhatsApp('${o.custPhone}', '${o.id}')" class="px-2.5 py-1 rounded-lg bg-emerald-950 text-emerald-300 border border-emerald-800 hover:bg-emerald-900 font-bold text-[10px]"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
+                        <button onclick="window.printWaybill('${o.id}')" class="px-2 py-1 rounded-lg bg-blue-950 text-blue-300 border border-blue-800 hover:bg-blue-900 font-bold text-[10px]"><i class="fa-solid fa-print"></i> بوليصة</button>
+                        <button onclick="window.openWhatsApp('${o.custPhone}', '${o.id}')" class="px-2 py-1 rounded-lg bg-emerald-950 text-emerald-300 border border-emerald-800 hover:bg-emerald-900 font-bold text-[10px]"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
+                        <button onclick="window.secureDeleteOrder('${o.id}')" class="px-2 py-1 rounded-lg bg-rose-950 text-rose-300 border border-rose-800 hover:bg-rose-900 font-bold text-[10px]" title="حذف الشحنة"><i class="fa-solid fa-trash"></i></button>
                     </td>
                 </tr>
             `).join('');
@@ -736,18 +732,16 @@ window.openAdminPasswordModal = function() {
 
         window.renderAdminDelegates = function() {
             const tbody = document.getElementById('adminDelegatesTableBody');
-if (tbody) {
-    tbody.innerHTML = (db.delegates || []).map(d => `
-        <!-- باقي كود الصفوف (HTML) كما هو لديك -->
-    `).join('');
-}
+            if (!tbody) return;
+            tbody.innerHTML = (db.delegates || []).map(d => `
                 <tr class="hover:bg-darkbg-900 transition">
                     <td class="p-3 font-bold text-amber-400">${d.id}</td>
                     <td class="p-3 font-bold text-white">${d.name}</td>
                     <td class="p-3">${d.phone}</td>
-                    <td class="p-3 font-mono text-emerald-400">Lat: ${d.lat.toFixed(4)}, Lng: ${d.lng.toFixed(4)}</td>
-                    <td class="p-3 text-center">
-                        <span class="text-[10px] text-gray-400">نشط ومحدث GPS تلقائياً</span>
+                    <td class="p-3 font-mono text-emerald-400">Lat: ${d.lat?.toFixed(4) || 0}, Lng: ${d.lng?.toFixed(4) || 0}</td>
+                    <td class="p-3 text-center space-x-1 space-x-reverse">
+                        <span class="text-[10px] text-gray-400 ml-2">نشط GPS</span>
+                        <button onclick="window.secureDeleteDelegate('${d.id}')" class="px-2 py-1 rounded-lg bg-rose-950 text-rose-300 border border-rose-800 hover:bg-rose-900 font-bold text-[10px]" title="حذف المندوب"><i class="fa-solid fa-trash"></i> حذف</button>
                     </td>
                 </tr>
             `).join('');
@@ -755,22 +749,62 @@ if (tbody) {
 
         window.renderAdminMerchants = function() {
             const tbody = document.getElementById('adminMerchantsTableBody');
-            tbody.innerHTML = db.merchants.map(m => `
+            if (!tbody) return;
+            tbody.innerHTML = (db.merchants || []).map(m => `
                 <tr class="hover:bg-darkbg-900 transition">
                     <td class="p-3 font-bold text-emerald-400">${m.id}</td>
                     <td class="p-3 font-bold text-white">${m.name}</td>
                     <td class="p-3">${m.phone}</td>
                     <td class="p-3 font-bold text-gold-400">${m.dues || 0} ج.م</td>
-                    <td class="p-3 text-center">
-                        <span class="text-[10px] text-gray-400">معتمد ومربوط</span>
+                    <td class="p-3 text-center space-x-1 space-x-reverse">
+                        <span class="text-[10px] text-gray-400 ml-2">معتمد</span>
+                        <button onclick="window.secureDeleteMerchant('${m.id}')" class="px-2 py-1 rounded-lg bg-rose-950 text-rose-300 border border-rose-800 hover:bg-rose-900 font-bold text-[10px]" title="حذف التاجر"><i class="fa-solid fa-trash"></i> حذف</button>
                     </td>
                 </tr>
             `).join('');
         };
 
+        // دالة الحذف المحمية بكلمة المرور للإدارة
+        window.promptAdminAuthForAction = function(actionCallback) {
+            const pass = prompt('أدخل كلمة مرور الإدارة لتأكيد الحذف الصارم:');
+            if (pass === '123456' || pass === 'safira2026') {
+                actionCallback();
+            } else if (pass !== null) {
+                alert('كلمة المرور غير صحيحة، تم إلغاء عملية الحذف.');
+            }
+        };
+
+        window.secureDeleteOrder = function(orderId) {
+            window.promptAdminAuthForAction(() => {
+                db.orders = db.orders.filter(o => o.id !== orderId);
+                saveDB();
+                renderAdminDashboard();
+                alert(`تم حذف الشحنة ${orderId} بنجاح.`);
+            });
+        };
+
+        window.secureDeleteDelegate = function(delId) {
+            window.promptAdminAuthForAction(() => {
+                db.delegates = db.delegates.filter(d => d.id !== delId);
+                saveDB();
+                renderAdminDashboard();
+                alert(`تم حذف المندوب ${delId} بنجاح.`);
+            });
+        };
+
+        window.secureDeleteMerchant = function(merId) {
+            window.promptAdminAuthForAction(() => {
+                db.merchants = db.merchants.filter(m => m.id !== merId);
+                saveDB();
+                renderAdminDashboard();
+                alert(`تم حذف التاجر ${merId} بنجاح.`);
+            });
+        };
+
         window.renderAdminPayoutRequests = function() {
             const tbody = document.getElementById('adminPayoutRequestsTableBody');
-            if (db.payouts.length === 0) {
+            if (!tbody) return;
+            if (!db.payouts || db.payouts.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-gray-400">لا توجد طلبات صرف مستحقات معلقة حالياً</td></tr>`;
                 return;
             }
@@ -792,7 +826,7 @@ if (tbody) {
         window.handleInstantOrderSubmit = function(e) {
             e.preventDefault();
             const merchantId = document.getElementById('instantMerchantId').value;
-            const merchant = db.merchants.find(m => m.id === merchantId) || { name: 'متجر عام' };
+            const merchant = (db.merchants || []).find(m => m.id === merchantId) || { name: 'متجر عام' };
             const custName = document.getElementById('instantCustName').value;
             const custPhone = document.getElementById('instantCustPhone').value;
             const address = document.getElementById('instantAddress').value;
@@ -813,6 +847,7 @@ if (tbody) {
                 locked: false
             };
 
+            if (!db.orders) db.orders = [];
             db.orders.unshift(newOrder);
             saveDB();
             alert('تم إنشاء الشحنة الفورية بنجاح!');
@@ -828,7 +863,8 @@ if (tbody) {
 
         function renderDelegatePortal() {
             const tbody = document.getElementById('delegateOrdersTableBody');
-            const myOrders = db.orders.filter(o => o.delegateId === currentUser.id);
+            if (!tbody) return;
+            const myOrders = (db.orders || []).filter(o => o.delegateId === currentUser.id);
             document.getElementById('delegateWelcomeName').innerText = `مرحباً بك، الكابتن ${currentUser.name}`;
 
             tbody.innerHTML = myOrders.map(o => `
@@ -857,7 +893,7 @@ if (tbody) {
 
         window.updateOrderStatusByDelegate = function(orderId, newStatus) {
             if (!newStatus) return;
-            const order = db.orders.find(o => o.id === orderId);
+            const order = (db.orders || []).find(o => o.id === orderId);
             if (order) {
                 if (order.locked) {
                     alert('عذراً، هذه الشحنة تم تعديل حالتها نهائياً من قبل ولا يمكن تعديلها مرة أخرى.');
@@ -866,7 +902,7 @@ if (tbody) {
                 order.status = newStatus;
                 order.locked = true;
                 if (newStatus === 'تم التسليم') {
-                    const merch = db.merchants.find(m => m.id === order.merchantId);
+                    const merch = (db.merchants || []).find(m => m.id === order.merchantId);
                     if (merch) {
                         merch.dues = (merch.dues || 0) + order.amount;
                     }
@@ -879,8 +915,9 @@ if (tbody) {
 
         function renderMerchantPortal() {
             const tbody = document.getElementById('merchantOrdersTableBody');
-            const myOrders = db.orders.filter(o => o.merchantId === currentUser.id);
-            const merchantObj = db.merchants.find(m => m.id === currentUser.id);
+            if (!tbody) return;
+            const myOrders = (db.orders || []).filter(o => o.merchantId === currentUser.id);
+            const merchantObj = (db.merchants || []).find(m => m.id === currentUser.id);
             document.getElementById('merchantWelcomeName').innerText = `متجر: ${merchantObj ? merchantObj.name : currentUser.name} (المستحقات: ${merchantObj?.dues || 0} ج.م)`;
 
             tbody.innerHTML = myOrders.map(o => `
@@ -902,7 +939,7 @@ if (tbody) {
         }
 
         window.printWaybill = function(orderId) {
-            const order = db.orders.find(o => o.id === orderId);
+            const order = (db.orders || []).find(o => o.id === orderId);
             if (!order) return;
 
             document.getElementById('printOrderId').innerText = order.id;
@@ -918,8 +955,8 @@ if (tbody) {
         };
 
         window.openWhatsApp = function(phone, orderId) {
-            const order = db.orders.find(o => o.id === orderId);
-            const msg = encodeURIComponent(`مرحباً أ/${order.custName}، معك شركة سفيرا لوجستيك بخصوص شحنتك رقم (${order.id}) بمبلغ ${order.amount} ج.م. يرجى تأكيد استلام الطلب في العنوان: ${order.address}`);
+            const order = (db.orders || []).find(o => o.id === orderId);
+            const msg = encodeURIComponent(`مرحباً أ/${order ? order.custName : ''}، معك شركة سفيرا لوجستيك بخصوص شحنتك رقم (${order ? order.id : ''}) بمبلغ ${order ? order.amount : 0} ج.م. يرجى تأكيد استلاستلام الطلب في العنوان: ${order ? order.address : ''}`);
             window.open(`https://wa.me/2${phone}?text=${msg}`, '_blank');
         };
 
@@ -928,6 +965,7 @@ if (tbody) {
             const amount = prompt('أدخل المبلغ المراد سحبه وصرفه (ج.م):', '1000');
             if (!amount) return;
 
+            if (!db.payouts) db.payouts = [];
             db.payouts.push({
                 date: new Date().toLocaleDateString('ar-EG'),
                 role: role,
@@ -953,7 +991,7 @@ if (tbody) {
                     const lat = pos.coords.latitude;
                     const lng = pos.coords.longitude;
                     if (currentUser && currentUser.role === 'delegate') {
-                        const del = db.delegates.find(d => d.id === currentUser.id);
+                        const del = (db.delegates || []).find(d => d.id === currentUser.id);
                         if (del) {
                             del.lat = lat;
                             del.lng = lng;
@@ -977,9 +1015,11 @@ if (tbody) {
                 attribution: '&copy; Safira Logistics GIS'
             }).addTo(mapInstance);
 
-            db.delegates.forEach(d => {
-                L.marker([d.lat, d.lng]).addTo(mapInstance)
-                    .bindPopup(`<b>مندوب: ${d.name} (${d.id})</b><br>الهاتف: ${d.phone}`);
+            (db.delegates || []).forEach(d => {
+                if (d.lat && d.lng) {
+                    L.marker([d.lat, d.lng]).addTo(mapInstance)
+                        .bindPopup(`<b>مندوب: ${d.name} (${d.id})</b><br>الهاتف: ${d.phone}`);
+                }
             });
         }
 
@@ -1004,6 +1044,7 @@ if (tbody) {
                 status: 'قيد التوصيل',
                 locked: false
             };
+            if (!db.orders) db.orders = [];
             db.orders.unshift(newOrd);
             saveDB();
             alert('تم إضافة الشحنة بنجاح!');
@@ -1016,9 +1057,10 @@ if (tbody) {
             if (!name) return;
             const id = 'DEL-' + Math.floor(100 + Math.random() * 900);
             const phone = prompt('رقم هاتف المندوب:');
+            if (!db.delegates) db.delegates = [];
             db.delegates.push({ id, name, phone: phone || '01000000000', lat: 30.0444, lng: 31.2357 });
             saveDB();
-            alert(`تم إضافة المندوب برمز الدخول: ${id}`);
+            alert(`تم إضافة المندوب بررمز الدخول: ${id}`);
             renderAdminDashboard();
         };
 
@@ -1027,9 +1069,10 @@ if (tbody) {
             if (!name) return;
             const id = 'MER-' + Math.floor(200 + Math.random() * 800);
             const phone = prompt('رقم هاتف التاجر:');
+            if (!db.merchants) db.merchants = [];
             db.merchants.push({ id, name, phone: phone || '01000000000', dues: 0 });
             saveDB();
-            alert(`تم إضافة التاجر برمز الدخول: ${id}`);
+            alert(`تم إضافة التاجر بررمز الدخول: ${id}`);
             renderAdminDashboard();
         };
     </script>
