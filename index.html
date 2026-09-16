@@ -541,11 +541,11 @@
         const response = await fetch(targetUrl);
         if (response.ok) {
             const serverData = await response.json();
-            if (serverData && serverData.orders) {
+            // تم تعديل الشرط هنا ليقبل بيانات السيرفر حتى لو كانت المصفوفات فارغة أو جديدة
+            if (serverData) {
                 db = serverData;
                 console.log("تم تحديث البيانات من السيرفر بنجاح", db);
                 
-                // إذا كانت واجهة المستخدم لديك تحتوي على دالة لتحديث الشاشة بعد جلب البيانات، استدعها هنا:
                 if (typeof updateUI === 'function') updateUI();
                 if (typeof renderOrders === 'function') renderOrders();
                 
@@ -553,9 +553,9 @@
             }
         }
     } catch (e) {
-        // تم حذف الـ alert المزعج، واكتفينا بتسجيل الخطأ في الكونسول بصمت
         console.log("جاري إعادة المحاولة للاتصال بالسيرفر...", e);
     }
+}
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
