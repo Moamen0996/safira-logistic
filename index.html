@@ -576,17 +576,16 @@
             sel.innerHTML = db.merchants.map(m => `<option value="${m.id}">${m.name} (${m.id})</option>`).join('');
         }
 
-        window.openAdminPasswordModal = function() {
-            const modal = document.getElementById('securePasswordModal');
-            if (modal) {
-                modal.classList.remove('hidden');
-                modal.style.display = 'flex';
-                const input = document.getElementById('secureSecretInput');
-                if (input) {
-                    input.value = '';
-                    input.focus();
-                }
-            }
+       لى window لضمان عمل الأزرار عليها فوراً
+window.openAdminPasswordModal = function() {
+    const modal = document.getElementById('adminPasswordModal'); // أو اسم الـ Modal لديك
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+    } else {
+        console.error("لم يتم العثور على عنصر modal الخاص بكلمة المرور");
+    }
+};
         };
 
         window.closeAdminPasswordModal = function() {
