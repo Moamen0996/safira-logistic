@@ -10,8 +10,8 @@ app.use(cors());
 // السماح لقراءة ملفات الواجهة الأمامية الموجودة في نفس المستودع (إذا كانت في مجلد الجذر أو مجلد public)
 app.use(express.static(__dirname)); 
 
-// 1. الاتصال بقاعدة البيانات
-mongoose.connect(process.env.MONGO_URI)
+// 1. الاتصال بقاعدة البيانات مباشرة
+mongoose.connect("mongodb+srv://moamenbeliever_db_user:moamenbeliever172096@cluster0.yucaqm0.mongodb.net/?appName=Cluster0")
   .then(() => console.log("Database connected successfully"))
   .catch(err => console.error("Database connection error:", err));
 
