@@ -55,6 +55,10 @@ app.post('/api/data', handlePostData);
 app.post('/data', handlePostData);
 
 const PORT = process.env.PORT || 8080;
+
+app.get('/', (req, res) => {
+  res.send('Safira Logistics Server is Running Successfully!');
+});
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
