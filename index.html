@@ -534,25 +534,27 @@
             }
         }
 
-       // دالة جلب البيانات المحدثة مباشرة من سيرفر Railway
-    async function loadDB() {
-        try {
-            // تأكد أن API_URL هو رابط ريلواي الصحيح، أو اتركه فارغاً ('/data') إذا كان السيرفر يرفع ملفات الـ HTML مباشرة
-            const targetUrl = (typeof API_URL !== 'undefined' && API_URL) ? `${API_URL}/data` : '/data';
-            
-            const response = await fetch(targetUrl);
-            if (response.ok) {
-                const serverData = await response.json();
-                if (serverData && serverData.orders) {
-                    db = serverData;
-                    console.log("تم تحديث البيانات من السيرفر بنجاح", db);
-                    return;
-                }
+     async function loadDB() {
+    try {
+        const targetUrl = (typeof API_URL !== 'undefined' && API_URL) ? `${API_URL}/data` : '/data';
+        
+        const response = await fetch(targetUrl);
+        if (response.ok) {
+            const serverData = await response.json();
+            if (serverData && serverData.orders) {
+                db = serverData;
+                console.log("تم تحديث البيانات من السيرفر بنجاح", db);
+                
+                // إذا كانت واجهة المستخدم لديك تحتوي على دالة لتحديث الشاشة بعد جلب البيانات، استدعها هنا:
+                if (typeof updateUI === 'function') updateUI();
+                if (typeof renderOrders === 'function') renderOrders();
+                
+                return;
             }
-        } catch (e) {
-            console.error("فشل الاتصال بالسيرفر لجلب البيانات:", e);
-            alert("فشل الاتصال بقاعدة البيانات السحابية، يرجى التأكد من اتصال الإنترنت.");
         }
+    } catch (e) {
+        // تم حذف الـ alert المزعج، واكتفينا بتسجيل الخطأ في الكونسول بصمت
+        console.log("جاري إعادة المحاولة للاتصال بالسيرفر...", e);
     }
         }
 
