@@ -1,10 +1,14 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const path = require('path'); // أضفنا مكتبة المسارات
 const app = express();
 
 app.use(express.json({ limit: '10mb' }));
-app.use(cors()); // تفعيل الـ CORS لمنع أي حظر من المتصفح
+app.use(cors());
+
+// السماح لقراءة ملفات الواجهة الأمامية الموجودة في نفس المستودع (إذا كانت في مجلد الجذر أو مجلد public)
+app.use(express.static(__dirname)); 
 
 // 1. الاتصال بقاعدة البيانات
 mongoose.connect(process.env.MONGO_URI)
@@ -19,7 +23,7 @@ const systemStateSchema = new mongoose.Schema({
 
 const SystemState = mongoose.model('SystemState', systemStateSchema);
 
-// 2. مسارات شاملة لجلب البيانات (GET)
+// 2. مسارات البيانات (GET)
 const handleGetData = async (req, res) => {
   try {
     let state = await SystemState.findOne({ key: "main_db" });
@@ -34,9 +38,8 @@ const handleGetData = async (req, res) => {
 
 app.get('/api/data', handleGetData);
 app.get('/data', handleGetData);
-app.get('/api/api/data', handleGetData);
 
-// 3. مسارات شاملة لحفظ البيانات (POST)
+// 3. مسارات حفظ البيانات (POST)
 const handlePostData = async (req, res) => {
   try {
     const newData = req.body;
@@ -54,11 +57,38 @@ const handlePostData = async (req, res) => {
 app.post('/api/data', handlePostData);
 app.post('/data', handlePostData);
 
-const PORT = process.env.PORT || 8080;
-
-app.get('/', (req, res) => {
-  res.send('Safira Logistics Server is Running Successfully!');
+// مسار تسجيل التجار الجدد الذي طلبناه مسبقاً
+app.post('/api/merchant-requests', async (req, res) => {
+  try {
+    const merchantRequest = req.body;
+    let state = await SystemState.findOne({ key: "main_db" });
+    if (!state) {
+      state = { data: { orders: [], merchants: [], merchantRequests: [] } };
+    }
+    if (!state.data.merchantRequests) state.data.merchantRequests = [];
+    
+    merchantRequest.id = Date.now();
+    merchantRequest.status = 'pending';
+    merchantRequest.createdAt = new Date();
+    state.data.merchantRequests.push(merchantRequest);
+    
+    await SystemState.findOneAndUpdate(
+      { key: "main_db" },
+      { data: state.data, updatedAt: Date.now },
+      { upsert: true, new: true }
+    );
+    res.json({ success: true, message: "تم إرسال طلب التسجيل بنجاح، بانتظار موافقة الإدارة" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
+
+// الصفحة الرئيسية تعرض ملف index.html الخاص بالتطبيق تلقائياً
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
