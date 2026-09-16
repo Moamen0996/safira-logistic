@@ -11,7 +11,7 @@ app.use(cors());
 app.use(express.static(__dirname)); 
 
 // 1. الاتصال بقاعدة البيانات مباشرة
-mongoose.connect("mongodb+srv://moamenbeliever_db_user:MOAMEN172096@cluster0.yucaqm0.mongodb.net/?appName=Cluster0")
+mongoose.connect("mongodb+srv://safira:safira2026@cluster0.yucaqm0.mongodb.net/?appName=Cluster0")
   .then(() => console.log("Database connected successfully"))
   .catch(err => console.error("Database connection error:", err));
 
