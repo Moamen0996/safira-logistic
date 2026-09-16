@@ -54,7 +54,7 @@ const handlePostData = async (req, res) => {
 app.post('/api/data', handlePostData);
 app.post('/data', handlePostData);
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
