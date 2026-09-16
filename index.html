@@ -534,25 +534,26 @@
             }
         }
 
-        // دالة جلب البيانات من قاعدة بيانات MongoDB عبر سيرفر Railway مع السقوط الاحتياطي (Load DB)
-        async function loadDB() {
-            try {
-                const response = await fetch(`${API_URL}/data`);
-                if (response.ok) {
-                    const serverData = await response.json();
-                    if (serverData && serverData.orders) {
-                        db = serverData;
-                        return;
-                    }
-                }
-            } catch (e) {
-                console.log("Using local fallback due to network error", e);
-            }
+       // دالة جلب البيانات المحدثة مباشرة من سيرفر Railway
+    async function loadDB() {
+        try {
+            // تأكد أن API_URL هو رابط ريلواي الصحيح، أو اتركه فارغاً ('/data') إذا كان السيرفر يرفع ملفات الـ HTML مباشرة
+            const targetUrl = (typeof API_URL !== 'undefined' && API_URL) ? `${API_URL}/data` : '/data';
             
-            const data = localStorage.getItem(DB_KEY);
-            if (data) {
-                try { db = JSON.parse(data); } catch(e){}
+            const response = await fetch(targetUrl);
+            if (response.ok) {
+                const serverData = await response.json();
+                if (serverData && serverData.orders) {
+                    db = serverData;
+                    console.log("تم تحديث البيانات من السيرفر بنجاح", db);
+                    return;
+                }
             }
+        } catch (e) {
+            console.error("فشل الاتصال بالسيرفر لجلب البيانات:", e);
+            alert("فشل الاتصال بقاعدة البيانات السحابية، يرجى التأكد من اتصال الإنترنت.");
+        }
+    }
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
