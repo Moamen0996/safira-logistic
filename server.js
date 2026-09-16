@@ -5,7 +5,7 @@ require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 8080;
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://safira:sadira2026@cluster0.yucaqm0.mongodb.net/?appName=Cluster0';
+const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://safira:safira2026@cluster0.mongodb.net/safira_logistics?retryWrites=true&w=majority';
 
 app.use(cors());
 app.use(express.json());
@@ -24,6 +24,19 @@ mongoose.connect(MONGO_URI, {
     console.log('Successfully connected to MongoDB Atlas Cloud');
 }).catch(err => {
     console.error('MongoDB connection error:', err);
+});
+
+app.get('/', (req, res) => {
+    res.json({
+        success: true,
+        message: 'سفيرا لوجستيك - السيرفر السحابي يعمل بكفاءة تامة!',
+        endpoints: {
+            syncStateGet: '/api/sync',
+            syncStatePost: '/api/sync'
+        },
+        status: 'Online',
+        timestamp: new Date().toISOString()
+    });
 });
 
 // Get full application database state
@@ -66,6 +79,9 @@ app.post('/api/sync', async (req, res) => {
     }
 });
 
+app.listen(PORT, () => {
+    console.log(`Safira Logistics Cloud Server is running on port ${PORT}`);
+});
 app.listen(PORT, () => {
     console.log(`Safira Logistics Cloud Server is running on port ${PORT}`);
 });
