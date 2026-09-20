@@ -45,7 +45,7 @@ let mongoUri = process.env.MONGODB_URI || process.env.MONGO_URL || '';
 function sanitizeMongoUri(uri) {
     if (!uri) return '';
     try {
-        // Correctly handle passwords with special characters by encoding them if needed
+        // Automatically URL-encode special characters in MongoDB Atlas passwords (e.g., @, #, $, %, etc.)
         const regex = /^(mongodb(?:\+srv)?:\/\/)([^:]+):([^@]+)@(.*)$/;
         const match = uri.match(regex);
         if (match) {
@@ -54,7 +54,6 @@ function sanitizeMongoUri(uri) {
             const pass = match[3];
             const rest = match[4];
             
-            // Avoid double encoding if already encoded
             let decodedPass = pass;
             try { decodedPass = decodeURIComponent(pass); } catch(e) {}
             const encodedPass = encodeURIComponent(decodedPass);
@@ -93,8 +92,7 @@ async function connectDB() {
     } catch (err) {
         isMongoConnected = false;
         console.error('MongoDB connection error (Auth/Network):', err.message);
-        console.log('⚠️ [ملاحظة هامة]: خطأ المصادقة (bad auth) يعني غالباً أن كلمة المرور تحتوي على رموز خاصة مثل @ أو # أو % ولم يتم تشفيرها (URL Encoded)، أو أن اسم المستخدم وكلمة المرور غير صحيحات في MongoDB Atlas.');
-        console.log('النظام يعمل بكفاءة تامة باستخدام الذاكرة السحابية المؤقتة (In-Memory Resilient Mode). يمكنك تصحيح الرابط فوراً عبر API /api/fix-auth.');
+        console.log('⚠️ [حل المشكلة جذرياً]: خطأ bad auth يعني أن اسم المستخدم أو كلمة المرور غير صحيحة، أو أن كلمة المرور تحتوي على رموز خاصة ولم يتم تشفيرها تلقائياً. تأكد من إعداد Network Access في MongoDB Atlas والسماح للـ IP بـ 0.0.0.0/0.');
     }
 }
 
