@@ -93,7 +93,12 @@ async function connectDB() {
         if (!existing) {
             await SafiraModel.create({ singletonKey: 'main_db', data: fallbackDatabase });
         } else {
-            fallbackDatabase =d auth" usually occurs when the MongoDB username, password, or database user privileges are incorrect or URL-encoded special characters need adjustment.');
+            fallbackDatabase = existing.data;
+        }
+    } catch (err) {
+        isMongoConnected = false;
+        console.error('MongoDB connection error:', err.message);
+        console.log('NOTE: "bad auth" usually occurs when the MongoDB username, password, or database user privileges are incorrect or URL-encoded special characters need adjustment.');
         console.log('The server remains 100% operational using reliable in-memory cloud state synchronization.');
     }
 }
