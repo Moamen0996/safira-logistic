@@ -42,16 +42,48 @@ const safiraSchema = new mongoose.Schema({
 const SafiraModel = mongoose.model('SafiraData', safiraSchema);
 
 let isMongoConnected = false;
-const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URL || '';
+let mongoUri = process.env.MONGODB_URI || process.env.MONGO_URL || '';
+
+/**
+ * Helper function to safely encode password special characters in MongoDB URI if needed
+ */
+function sanitizeMongoUri(uri) {
+    if (!uri) return '';
+    try {
+        // If URI has standard format mongodb+srv://user:pass@host/db
+        const regex = /^(mongodb(?:\+srv)?:\/\/)([^:]+):([^@]+)@(.*)$/;
+        const match = uri.match(regex);
+        if (match) {
+            const prefix = match.match ? match[1] : 'mongodb+srv://';
+            const user = match[2];
+            let pass = match[3];
+            const rest = match[4];
+            
+            // If password contains unencoded special characters like @, :, /, ?, #, [, ], etc.
+            // Let's encode the password component
+            const encodedPass = encodeURIComponent(decodeURIComponent(pass));
+            if (pass !== encodedPass) {
+                console.log('Automatically URL-encoding MongoDB password special characters...');
+                return `${prefix}${user}:${encodedPass}@${rest}`;
+            }
+        }
+    } catch (e) {
+        console.error('Error sanitizing MongoDB URI:', e.message);
+    }
+    return uri;
+}
 
 async function connectDB() {
     if (!mongoUri) {
         console.log('No MONGODB_URI provided. Running in resilient in-memory cloud sync mode.');
         return;
     }
+    
+    const cleanUri = sanitizeMongoUri(mongoUri);
+
     try {
         console.log('Attempting connection to MongoDB Atlas cluster...');
-        await mongoose.connect(mongoUri, {
+        await mongoose.connect(cleanUri, {
             serverSelectionTimeoutMS: 5000,
             family: 4
         });
@@ -62,10 +94,10 @@ async function connectDB() {
         if (!existing) {
             await SafiraModel.create({ singletonKey: 'main_db', data: fallbackDatabase });
         } else {
-            // Sync fallback memory with Mongo if available
             fallbackDatabase = existing.data;
         }
     } catch (err) {
+        isMongoConnected = false;
         console.error('MongoDB connection error:', err.message);
         console.log('NOTE: "bad auth" usually occurs when the MongoDB username, password, or database user privileges are incorrect or URL-encoded special characters need adjustment.');
         console.log('The server remains 100% operational using reliable in-memory cloud state synchronization.');
@@ -76,7 +108,7 @@ connectDB();
 
 app.get('/api/sync', async (req, res) => {
     try {
-        if (isMongoConnected) {
+        if (isMongoConnected && mongoose.connection.readyState === 1) {
             const doc = await SafiraModel.findOne({ singletonKey: 'main_db' });
             if (doc && doc.data) {
                 return res.json({ success: true, data: doc.data, storage: 'mongodb' });
@@ -97,14 +129,39 @@ app.post('/api/sync', async (req, res) => {
         
         fallbackDatabase = newData;
 
-        if (isMongoConnected) {
+        if (isMongoConnected && mongoose.connection.readyState === 1) {
             await SafiraModel.findOneAndUpdate(
                 { singletonKey: 'main_db' },
                 { data: newData },
                 { upsert: true, new: true }
             );
         }
-        res.json({ success: true, message: 'Data synced successfully' });
+        res.json({ success: true, message: 'Data synced successfully', storage: isMongoConnected ? 'mongodb' : 'in-memory-resilient' });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// Diagnostic and fix endpoint for MongoDB Auth
+app.post('/api/fix-auth', async (req, res) => {
+    try {
+        const { newUri } = req.body;
+        if (newUri) {
+            mongoUri = newUri;
+        }
+        
+        if (mongoose.connection.readyState !== 0) {
+            await mongoose.disconnect();
+        }
+        
+        isMongoConnected = false;
+        await connectDB();
+        
+        res.json({
+            success: isMongoConnected,
+            connected: isMongoConnected,
+            message: isMongoConnected ? 'MongoDB connected successfully!' : 'Authentication failed. Please verify your MongoDB Atlas username and password in Railway environment variables.'
+        });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
