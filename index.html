@@ -1103,7 +1103,9 @@
                 renderAdminDashboard();
                 alert(`تم إضافة المندوب برمز: ${id}`);
             });
-        };
+      };
+        const cors = require('cors');
+   app.use(cors({ origin: '*' }));
     </script>
 </body>
 </html>
