@@ -45,22 +45,21 @@ let isMongoConnected = false;
 let mongoUri = process.env.MONGODB_URI || process.env.MONGO_URL || '';
 
 /**
- * Helper function to safely encode password special characters in MongoDB URI if needed
+ * Helper function to safely encode password special characters in MongoDB URI
  */
 function sanitizeMongoUri(uri) {
     if (!uri) return '';
     try {
-        // If URI has standard format mongodb+srv://user:pass@host/db
+        // Matches mongodb+srv://username:password@hostname/dbname
         const regex = /^(mongodb(?:\+srv)?:\/\/)([^:]+):([^@]+)@(.*)$/;
         const match = uri.match(regex);
         if (match) {
-            const prefix = match.match ? match[1] : 'mongodb+srv://';
+            const prefix = match[1];
             const user = match[2];
-            let pass = match[3];
+            const pass = match[3];
             const rest = match[4];
             
-            // If password contains unencoded special characters like @, :, /, ?, #, [, ], etc.
-            // Let's encode the password component
+            // URL-encode password components in case it contains @, #, !, %, etc.
             const encodedPass = encodeURIComponent(decodeURIComponent(pass));
             if (pass !== encodedPass) {
                 console.log('Automatically URL-encoding MongoDB password special characters...');
@@ -94,12 +93,7 @@ async function connectDB() {
         if (!existing) {
             await SafiraModel.create({ singletonKey: 'main_db', data: fallbackDatabase });
         } else {
-            fallbackDatabase = existing.data;
-        }
-    } catch (err) {
-        isMongoConnected = false;
-        console.error('MongoDB connection error:', err.message);
-        console.log('NOTE: "bad auth" usually occurs when the MongoDB username, password, or database user privileges are incorrect or URL-encoded special characters need adjustment.');
+            fallbackDatabase =d auth" usually occurs when the MongoDB username, password, or database user privileges are incorrect or URL-encoded special characters need adjustment.');
         console.log('The server remains 100% operational using reliable in-memory cloud state synchronization.');
     }
 }
@@ -173,4 +167,9 @@ app.get('/', (req, res) => {
 
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Safira Logistics Cloud Server is running on port ${PORT}`);
-});
+}); existing.data;
+        }
+    } catch (err) {
+        isMongoConnected = false;
+        console.error('MongoDB connection error:', err.message);
+        console.log('NOTE: "ba
