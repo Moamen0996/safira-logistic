@@ -1,7 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -9,7 +8,6 @@ const PORT = process.env.PORT || 8080;
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// Fallback robust in-memory cloud database
 let fallbackDatabase = {
     orders: [
         { id: "SAF-9001", waybill: "WAY-884102", merchantId: "MER-201", merchantName: "متجر القاهرة الإلكتروني", custName: "محمود حسن", custPhone: "01012345678", address: "القاهرة - مدينة نصر", amount: 850, shipping: 70, delegateId: "DEL-101", status: "قيد التوصيل", locked: false },
@@ -44,13 +42,9 @@ const SafiraModel = mongoose.model('SafiraData', safiraSchema);
 let isMongoConnected = false;
 let mongoUri = process.env.MONGODB_URI || process.env.MONGO_URL || '';
 
-/**
- * Helper function to safely encode password special characters in MongoDB URI
- */
 function sanitizeMongoUri(uri) {
     if (!uri) return '';
     try {
-        // Matches mongodb+srv://username:password@hostname/dbname
         const regex = /^(mongodb(?:\+srv)?:\/\/)([^:]+):([^@]+)@(.*)$/;
         const match = uri.match(regex);
         if (match) {
@@ -58,11 +52,8 @@ function sanitizeMongoUri(uri) {
             const user = match[2];
             const pass = match[3];
             const rest = match[4];
-            
-            // URL-encode password components in case it contains @, #, !, %, etc.
             const encodedPass = encodeURIComponent(decodeURIComponent(pass));
             if (pass !== encodedPass) {
-                console.log('Automatically URL-encoding MongoDB password special characters...');
                 return `${prefix}${user}:${encodedPass}@${rest}`;
             }
         }
@@ -98,7 +89,6 @@ async function connectDB() {
     } catch (err) {
         isMongoConnected = false;
         console.error('MongoDB connection error:', err.message);
-        console.log('NOTE: "bad auth" usually occurs when the MongoDB username, password, or database user privileges are incorrect or URL-encoded special characters need adjustment.');
         console.log('The server remains 100% operational using reliable in-memory cloud state synchronization.');
     }
 }
@@ -141,7 +131,6 @@ app.post('/api/sync', async (req, res) => {
     }
 });
 
-// Diagnostic and fix endpoint for MongoDB Auth
 app.post('/api/fix-auth', async (req, res) => {
     try {
         const { newUri } = req.body;
@@ -159,7 +148,7 @@ app.post('/api/fix-auth', async (req, res) => {
         res.json({
             success: isMongoConnected,
             connected: isMongoConnected,
-            message: isMongoConnected ? 'MongoDB connected successfully!' : 'Authentication failed. Please verify your MongoDB Atlas username and password in Railway environment variables.'
+            message: isMongoConnected ? 'MongoDB connected successfully!' : 'Authentication failed. Please verify your MongoDB Atlas credentials.'
         });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -172,9 +161,4 @@ app.get('/', (req, res) => {
 
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Safira Logistics Cloud Server is running on port ${PORT}`);
-}); existing.data;
-        }
-    } catch (err) {
-        isMongoConnected = false;
-        console.error('MongoDB connection error:', err.message);
-        console.log('NOTE: "ba
+});
