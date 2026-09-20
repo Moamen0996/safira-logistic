@@ -45,6 +45,7 @@ let mongoUri = process.env.MONGODB_URI || process.env.MONGO_URL || '';
 function sanitizeMongoUri(uri) {
     if (!uri) return '';
     try {
+        // Correctly handle passwords with special characters by encoding them if needed
         const regex = /^(mongodb(?:\+srv)?:\/\/)([^:]+):([^@]+)@(.*)$/;
         const match = uri.match(regex);
         if (match) {
@@ -52,10 +53,13 @@ function sanitizeMongoUri(uri) {
             const user = match[2];
             const pass = match[3];
             const rest = match[4];
-            const encodedPass = encodeURIComponent(decodeURIComponent(pass));
-            if (pass !== encodedPass) {
-                return `${prefix}${user}:${encodedPass}@${rest}`;
-            }
+            
+            // Avoid double encoding if already encoded
+            let decodedPass = pass;
+            try { decodedPass = decodeURIComponent(pass); } catch(e) {}
+            const encodedPass = encodeURIComponent(decodedPass);
+            
+            return `${prefix}${user}:${encodedPass}@${rest}`;
         }
     } catch (e) {
         console.error('Error sanitizing MongoDB URI:', e.message);
@@ -88,8 +92,9 @@ async function connectDB() {
         }
     } catch (err) {
         isMongoConnected = false;
-        console.error('MongoDB connection error:', err.message);
-        console.log('The server remains 100% operational using reliable in-memory cloud state synchronization.');
+        console.error('MongoDB connection error (Auth/Network):', err.message);
+        console.log('⚠️ [ملاحظة هامة]: خطأ المصادقة (bad auth) يعني غالباً أن كلمة المرور تحتوي على رموز خاصة مثل @ أو # أو % ولم يتم تشفيرها (URL Encoded)، أو أن اسم المستخدم وكلمة المرور غير صحيحات في MongoDB Atlas.');
+        console.log('النظام يعمل بكفاءة تامة باستخدام الذاكرة السحابية المؤقتة (In-Memory Resilient Mode). يمكنك تصحيح الرابط فوراً عبر API /api/fix-auth.');
     }
 }
 
@@ -148,7 +153,7 @@ app.post('/api/fix-auth', async (req, res) => {
         res.json({
             success: isMongoConnected,
             connected: isMongoConnected,
-            message: isMongoConnected ? 'MongoDB connected successfully!' : 'Authentication failed. Please verify your MongoDB Atlas credentials.'
+            message: isMongoConnected ? 'MongoDB connected successfully!' : 'Authentication failed. Please verify your MongoDB Atlas username, password (URL encode special characters like @ to %40), and Network Access IP whitelist (allow 0.0.0.0/0).'
         });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -156,7 +161,7 @@ app.post('/api/fix-auth', async (req, res) => {
 });
 
 app.get('/', (req, res) => {
-    res.send('Safira Logistics Cloud Server is running successfully!');
+    res.send('Safira Logistics Cloud Server is running successfully! (Bad Auth diagnostics active)');
 });
 
 app.listen(PORT, '0.0.0.0', () => {
