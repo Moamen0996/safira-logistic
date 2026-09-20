@@ -6,7 +6,7 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '15mb' }));
 
 let fallbackDatabase = {
     orders: [
@@ -40,12 +40,13 @@ const safiraSchema = new mongoose.Schema({
 const SafiraModel = mongoose.model('SafiraData', safiraSchema);
 
 let isMongoConnected = false;
-let mongoUri = process.env.MONGODB_URI || process.env.MONGO_URL || '';
+
+// يمكنك هنا وضع رابط MongoDB الخاص بك مباشرة، أو وضعه كمتجر بيئة (Environment Variable) في Railway باسم MONGODB_URI
+let mongoUri = process.env.MONGODB_URI || process.env.MONGO_URL || 'mongodb+srv://safira:sadira2026@cluster0.yucaqm0.mongodb.net/?appName=Cluster0';
 
 function sanitizeMongoUri(uri) {
     if (!uri) return '';
     try {
-        // Automatically URL-encode special characters in MongoDB Atlas passwords (e.g., @, #, $, %, etc.)
         const regex = /^(mongodb(?:\+srv)?:\/\/)([^:]+):([^@]+)@(.*)$/;
         const match = uri.match(regex);
         if (match) {
@@ -67,8 +68,8 @@ function sanitizeMongoUri(uri) {
 }
 
 async function connectDB() {
-    if (!mongoUri) {
-        console.log('No MONGODB_URI provided. Running in resilient in-memory cloud sync mode.');
+    if (!mongoUri || mongoUri.includes('YOUR_USERNAME')) {
+        console.log('⚠️ لم يتم إدخال رابط MongoDB Atlas الحقيقي بعد. السيرفر يعمل حالياً بنظام الذاكرة المؤقتة (In-Memory Cloud Sync).');
         return;
     }
     
@@ -92,7 +93,7 @@ async function connectDB() {
     } catch (err) {
         isMongoConnected = false;
         console.error('MongoDB connection error (Auth/Network):', err.message);
-        console.log('⚠️ [حل المشكلة جذرياً]: خطأ bad auth يعني أن اسم المستخدم أو كلمة المرور غير صحيحة، أو أن كلمة المرور تحتوي على رموز خاصة ولم يتم تشفيرها تلقائياً. تأكد من إعداد Network Access في MongoDB Atlas والسماح للـ IP بـ 0.0.0.0/0.');
+        console.log('⚠️ [حل المشكلة جذرياً]: خطأ bad auth يعني أن اسم المستخدم أو كلمة المرور غير صحيحة، أو أن كلمة المرور تحتوي على رموز خاصة ولم يتم تشفيرها تلقائياً.');
     }
 }
 
@@ -134,7 +135,7 @@ app.post('/api/sync', async (req, res) => {
     }
 });
 
-app.post('/api/fix-auth', async (req, res) => {
+app.post('/api/fix-auth', async (req, conres) => {
     try {
         const { newUri } = req.body;
         if (newUri) {
@@ -148,13 +149,13 @@ app.post('/api/fix-auth', async (req, res) => {
         isMongoConnected = false;
         await connectDB();
         
-        res.json({
+        conres.json({
             success: isMongoConnected,
             connected: isMongoConnected,
-            message: isMongoConnected ? 'MongoDB connected successfully!' : 'Authentication failed. Please verify your MongoDB Atlas username, password (URL encode special characters like @ to %40), and Network Access IP whitelist (allow 0.0.0.0/0).'
+            message: isMongoConnected ? 'MongoDB connected successfully!' : 'Authentication failed. Please verify your MongoDB Atlas username and password.'
         });
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        conres.status(500).json({ success: false, error: err.message });
     }
 });
 
