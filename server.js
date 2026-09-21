@@ -1,3 +1,8 @@
+require('dotenv').config();
+
+const dns = require('dns');
+dns.setServers(['8.8.8.8', '1.1.1.1']);
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -42,7 +47,7 @@ const SafiraModel = mongoose.model('SafiraData', safiraSchema);
 let isMongoConnected = false;
 
 // يمكنك هنا وضع رابط MongoDB الخاص بك مباشرة، أو وضعه كمتجر بيئة (Environment Variable) في Railway باسم MONGODB_URI
-let mongoUri = process.env.MONGODB_URI || process.env.MONGO_URL || 'mongodb+srv://safira:safira2026@cluster0.yucaqm0.mongodb.net/?appName=Cluster0';
+let mongoUri = process.env.MONGODB_URI || process.env.MONGO_URL || '';
 
 function sanitizeMongoUri(uri) {
     if (!uri) return '';
