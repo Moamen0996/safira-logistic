@@ -118,6 +118,23 @@ app.get('/api/sync', async (req, res) => {
     } catch (err) {
         res.status(500).json({ success: false, error: err.message, data: fallbackDatabase });
     }
+
+    // نقطة نهاية (API) لحفظ مجموعة شحنات دفعة واحدة (من الإكسل)
+app.post('/api/orders/bulk', async (req, res) => {
+    try {
+        const { orders } = req.body;
+        if (!orders || !Array.isArray(orders)) {
+            return res.status(400).json({ error: 'البيانات المرسلة ليست مصفوفة صحيحة' });
+        }
+        
+        // إدخال البيانات دفعة واحدة في MongoDB
+        const savedOrders = await Order.insertMany(orders, { ordered: false });
+        res.status(201).json({ message: 'تم الحفظ بنجاح', count: savedOrders.length });
+    } catch (err) {
+        res.status(400).json({ error: 'حدث خطأ أثناء حفظ الشحنات الجماعية', details: err.message });
+    }
+});
+
 });
 
 app.post('/api/sync', async (req, res) => {
