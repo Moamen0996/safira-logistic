@@ -40,8 +40,6 @@ const safiraSchema = new mongoose.Schema({
 const SafiraModel = mongoose.model('SafiraData', safiraSchema);
 
 let isMongoConnected = false;
-
-// يمكنك هنا وضع رابط MongoDB الخاص بك مباشرة، أو وضعه كمتجر بيئة (Environment Variable) في Railway باسم MONGODB_URI
 let mongoUri = process.env.MONGODB_URI || process.env.MONGO_URL || 'mongodb+srv://safira:safira2026@cluster0.yucaqm0.mongodb.net/?appName=Cluster0';
 
 function sanitizeMongoUri(uri) {
@@ -100,12 +98,13 @@ async function connectDB() {
 connectDB();
 
 app.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*'); // أو حدد رابط جيت هب الخاص بك بدلاً من النجمة
+    res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     next();
 });
 
+// مسار مزامنة واسترجاع البيانات بالكامل
 app.get('/api/sync', async (req, res) => {
     try {
         if (isMongoConnected && mongoose.connection.readyState === 1) {
@@ -118,25 +117,9 @@ app.get('/api/sync', async (req, res) => {
     } catch (err) {
         res.status(500).json({ success: false, error: err.message, data: fallbackDatabase });
     }
-
-    // نقطة نهاية (API) لحفظ مجموعة شحنات دفعة واحدة (من الإكسل)
-app.post('/api/orders/bulk', async (req, res) => {
-    try {
-        const { orders } = req.body;
-        if (!orders || !Array.isArray(orders)) {
-            return res.status(400).json({ error: 'البيانات المرسلة ليست مصفوفة صحيحة' });
-        }
-        
-        // إدخال البيانات دفعة واحدة في MongoDB
-        const savedOrders = await Order.insertMany(orders, { ordered: false });
-        res.status(201).json({ message: 'تم الحفظ بنجاح', count: savedOrders.length });
-    } catch (err) {
-        res.status(400).json({ error: 'حدث خطأ أثناء حفظ الشحنات الجماعية', details: err.message });
-    }
 });
 
-});
-
+// مسار حفظ البيانات وتحديثها سحابياً
 app.post('/api/sync', async (req, res) => {
     try {
         const newData = req.body;
@@ -156,6 +139,37 @@ app.post('/api/sync', async (req, res) => {
         res.json({ success: true, message: 'Data synced successfully', storage: isMongoConnected ? 'mongodb' : 'in-memory-resilient' });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// مسار رفع واستيراد الشحنات دفعة واحدة (من الإكسل) وتحديث قاعدة البيانات الموحدة
+app.post('/api/orders/bulk', async (req, res) => {
+    try {
+        const { orders } = req.body;
+        if (!orders || !Array.isArray(orders)) {
+            return res.status(400).json({ success: false, error: 'البيانات المرسلة ليست مصفوفة صحيحة' });
+        }
+        
+        // دمج الشحنات الجديدة مع الشحنات الحالية في قاعدة البيانات الموحدة
+        if (!fallbackDatabase.orders) {
+            fallbackDatabase.orders = [];
+        }
+        
+        // إضافة الشحنات الجديدة للقائمة
+        fallbackDatabase.orders.push(...orders);
+
+        // حفظ التحديث في MongoDB إذا كان متصلاً
+        if (isMongoConnected && mongoose.connection.readyState === 1) {
+            await SafiraModel.findOneAndUpdate(
+                { singletonKey: 'main_db' },
+                { data: fallbackDatabase },
+                { upsert: true, new: true }
+            );
+        }
+
+        res.status(201).json({ success: true, message: 'تم حفظ الشحنات الجماعية بنجاح', count: orders.length });
+    } catch (err) {
+        res.status(400).json({ success: false, error: 'حدث خطأ أثناء حفظ الشحنات الجماعية', details: err.message });
     }
 });
 
