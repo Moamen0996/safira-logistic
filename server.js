@@ -19,8 +19,8 @@ let fallbackDatabase = {
         { id: "SAF-9002", waybill: "WAY-884103", merchantId: "MER-202", merchantName: "أزياء الإسكندرية", custName: "سارة أحمد", custPhone: "01298765432", address: "الإسكندرية - سموحة", amount: 1200, shipping: 80, delegateId: "DEL-102", status: "في المخزن", locked: false }
     ],
     delegates: [
-        { id: "DEL-101", name: "أحمد محمود", phone: "01099887766", lat: 30.0444, lng: 31.2357 },
-        { id: "DEL-102", name: "محمد إبراهيم", phone: "01122334455", lat: 31.2001, lng: 29.9187 }
+        { id: "DEL-101", name: "أحمد محمود", phone: "01099887766", username: "ahmed", password: "123", lat: 30.0444, lng: 31.2357 },
+        { id: "DEL-102", name: "محمد إبراهيم", phone: "01122334455", username: "mohamed", password: "123", lat: 31.2001, lng: 29.9187 }
     ],
     merchants: [
         { id: "MER-201", name: "متجر القاهرة الإلكتروني", phone: "01011223344", dues: 2400 },
@@ -43,11 +43,10 @@ const safiraSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 const SafiraModel = mongoose.model('SafiraData', safiraSchema);
-
 let isMongoConnected = false;
 
-// يمكنك هنا وضع رابط MongoDB الخاص بك مباشرة، أو وضعه كمتجر بيئة (Environment Variable) في Railway باسم MONGODB_URI
-let mongoUri = process.env.MONGODB_URI || process.env.MONGO_URL || '';
+// استخدام متغيرات البيئة أو الرابط الافتراضي لقاعدة البيانات
+let mongoUri = process.env.MONGODB_URI || process.env.MONGO_URL || 'mongodb+srv://safira:safira2026@cluster0.yucaqm0.mongodb.net/?appName=Cluster0';
 
 function sanitizeMongoUri(uri) {
     if (!uri) return '';
@@ -74,7 +73,7 @@ function sanitizeMongoUri(uri) {
 
 async function connectDB() {
     if (!mongoUri || mongoUri.includes('YOUR_USERNAME')) {
-        console.log('⚠️ لم يتم إدخال رابط MongoDB Atlas الحقيقي بعد. السيرفر يعمل حالياً بنظام الذاكرة المؤقتة (In-Memory Cloud Sync).');
+        console.log('⚠️ لم يتم إدخال رابط MongoDB Atlas الحقيقي بعد. السيرفر يعمل حالياً بنظام الذاكرة المؤقتة.');
         return;
     }
     
@@ -98,12 +97,19 @@ async function connectDB() {
     } catch (err) {
         isMongoConnected = false;
         console.error('MongoDB connection error (Auth/Network):', err.message);
-        console.log('⚠️ [حل المشكلة جذرياً]: خطأ bad auth يعني أن اسم المستخدم أو كلمة المرور غير صحيحة، أو أن كلمة المرور تحتوي على رموز خاصة ولم يتم تشفيرها تلقائياً.');
     }
 }
 
 connectDB();
 
+app.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    next();
+});
+
+// مسار مزامنة واسترجاع البيانات بالكامل
 app.get('/api/sync', async (req, res) => {
     try {
         if (isMongoConnected && mongoose.connection.readyState === 1) {
@@ -118,6 +124,7 @@ app.get('/api/sync', async (req, res) => {
     }
 });
 
+// مسار حفظ البيانات وتحديثها سحابياً
 app.post('/api/sync', async (req, res) => {
     try {
         const newData = req.body;
@@ -140,6 +147,86 @@ app.post('/api/sync', async (req, res) => {
     }
 });
 
+// مسار رفع واستيراد الشحنات دفعة واحدة
+app.post('/api/orders/bulk', async (req, res) => {
+    try {
+        const { orders } = req.body;
+        if (!orders || !Array.isArray(orders)) {
+            return res.status(400).json({ success: false, error: 'البيانات المرسلة ليست مصفوفة صحيحة' });
+        }
+        
+        if (!fallbackDatabase.orders) {
+            fallbackDatabase.orders = [];
+        }
+        
+        fallbackDatabase.orders.push(...orders);
+
+        if (isMongoConnected && mongoose.connection.readyState === 1) {
+            await SafiraModel.findOneAndUpdate(
+                { singletonKey: 'main_db' },
+                { data: fallbackDatabase },
+                { upsert: true, new: true }
+            );
+        }
+
+        res.status(201).json({ success: true, message: 'تم حفظ الشحنات الجماعية بنجاح', count: orders.length });
+    } catch (err) {
+        res.status(400).json({ success: false, error: 'حدث خطأ أثناء حفظ الشحنات الجماعية', details: err.message });
+    }
+});
+
+// ==========================================
+// مسارات جديدة خاصة بالمندوبين (تسجيل الدخول والتتبع)
+// ==========================================
+
+// 1. تسجيل دخول المندوب
+app.post('/api/delegates/login', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        const delegates = fallbackDatabase.delegates || [];
+        
+        const delegate = delegates.find(d => d.username === username && d.password === password);
+        
+        if (!delegate) {
+            return res.status(401).json({ success: false, error: 'اسم المستخدم أو كلمة المرور غير صحيحة' });
+        }
+
+        res.json({ success: true, delegate });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// 2. تحديث الموقع الجغرافي للمندوب (GPS)
+app.post('/api/delegates/location', async (req, res) => {
+    try {
+        const { delegateId, lat, lng } = req.body;
+        const delegates = fallbackDatabase.delegates || [];
+        
+        const delegate = delegates.find(d => d.id === delegateId);
+        if (delegate) {
+            delegate.lat = lat;
+            delegate.lng = lng;
+
+            // حفظ التحديث في قاعدة البيانات
+            if (isMongoConnected && mongoose.connection.readyState === 1) {
+                await SafiraModel.findOneAndUpdate(
+                    { singletonKey: 'main_db' },
+                    { data: fallbackDatabase },
+                    { upsert: true, new: true }
+                );
+            }
+            return res.json({ success: true, message: 'تم تحديث الموقع بنجاح' });
+        }
+
+        res.status(404).json({ success: false, error: 'المندوب غير موجود' });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// ==========================================
+
 app.post('/api/fix-auth', async (req, conres) => {
     try {
         const { newUri } = req.body;
@@ -157,7 +244,7 @@ app.post('/api/fix-auth', async (req, conres) => {
         conres.json({
             success: isMongoConnected,
             connected: isMongoConnected,
-            message: isMongoConnected ? 'MongoDB connected successfully!' : 'Authentication failed. Please verify your MongoDB Atlas username and password.'
+            message: isMongoConnected ? 'MongoDB connected successfully!' : 'Authentication failed.'
         });
     } catch (err) {
         conres.status(500).json({ success: false, error: err.message });
@@ -165,7 +252,7 @@ app.post('/api/fix-auth', async (req, conres) => {
 });
 
 app.get('/', (req, res) => {
-    res.send('Safira Logistics Cloud Server is running successfully! (Bad Auth diagnostics active)');
+    res.send('Safira Logistics Cloud Server is running successfully!');
 });
 
 app.listen(PORT, '0.0.0.0', () => {
