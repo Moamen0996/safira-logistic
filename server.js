@@ -45,7 +45,6 @@ const safiraSchema = new mongoose.Schema({
 const SafiraModel = mongoose.model('SafiraData', safiraSchema);
 let isMongoConnected = false;
 
-// استخدام متغيرات البيئة أو الرابط الافتراضي لقاعدة البيانات
 let mongoUri = process.env.MONGODB_URI || process.env.MONGO_URL || 'mongodb+srv://safira:safira2026@cluster0.yucaqm0.mongodb.net/?appName=Cluster0';
 
 function sanitizeMongoUri(uri) {
@@ -109,7 +108,6 @@ app.use((req, res, next) => {
     next();
 });
 
-// مسار مزامنة واسترجاع البيانات بالكامل
 app.get('/api/sync', async (req, res) => {
     try {
         if (isMongoConnected && mongoose.connection.readyState === 1) {
@@ -124,7 +122,6 @@ app.get('/api/sync', async (req, res) => {
     }
 });
 
-// مسار حفظ البيانات وتحديثها سحابياً
 app.post('/api/sync', async (req, res) => {
     try {
         const newData = req.body;
@@ -147,7 +144,62 @@ app.post('/api/sync', async (req, res) => {
     }
 });
 
-// مسار رفع واستيراد الشحنات دفعة واحدة
+app.post('/api/merchants', async (req, res) => {
+    try {
+        const { name, phone } = req.body;
+        if (!name || !phone) {
+            return res.status(400).json({ success: false, error: 'الرجاء إدخال اسم التاجر ورقم الهاتف' });
+        }
+        
+        if (!fallbackDatabase.merchants) {
+            fallbackDatabase.merchants = [];
+        }
+        
+        const newMerchant = { id: `MER-${Date.now()}`, name, phone, dues: 0 };
+        fallbackDatabase.merchants.push(newMerchant);
+
+        if (isMongoConnected && mongoose.connection.readyState === 1) {
+            await SafiraModel.findOneAndUpdate(
+                { singletonKey: 'main_db' },
+                { data: fallbackDatabase },
+                { upsert: true, new: true }
+            );
+        }
+
+        res.status(200).json({ success: true, message: 'تم حفظ التاجر بنجاح', merchant: newMerchant });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.post('/api/couriers', async (req, res) => {
+    try {
+        const { name, phone } = req.body;
+        if (!name || !phone) {
+            return res.status(400).json({ success: false, error: 'الرجاء إدخال اسم المندوب ورقم الهاتف' });
+        }
+
+        if (!fallbackDatabase.delegates) {
+            fallbackDatabase.delegates = [];
+        }
+
+        const newCourier = { id: `DEL-${Date.now()}`, name, phone, username: `courier_${Date.now()}`, password: '123', lat: 30.0444, lng: 31.2357 };
+        fallbackDatabase.delegates.push(newCourier);
+
+        if (isMongoConnected && mongoose.connection.readyState === 1) {
+            await SafiraModel.findOneAndUpdate(
+                { singletonKey: 'main_db' },
+                { data: fallbackDatabase },
+                { upsert: true, new: true }
+            );
+        }
+
+        res.status(200).json({ success: true, message: 'تم حفظ المندوب بنجاح', courier: newCourier });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 app.post('/api/orders/bulk', async (req, res) => {
     try {
         const { orders } = req.body;
@@ -175,11 +227,6 @@ app.post('/api/orders/bulk', async (req, res) => {
     }
 });
 
-// ==========================================
-// مسارات جديدة خاصة بالمندوبين (تسجيل الدخول والتتبع)
-// ==========================================
-
-// 1. تسجيل دخول المندوب
 app.post('/api/delegates/login', async (req, res) => {
     try {
         const { username, password } = req.body;
@@ -197,7 +244,6 @@ app.post('/api/delegates/login', async (req, res) => {
     }
 });
 
-// 2. تحديث الموقع الجغرافي للمندوب (GPS)
 app.post('/api/delegates/location', async (req, res) => {
     try {
         const { delegateId, lat, lng } = req.body;
@@ -208,7 +254,6 @@ app.post('/api/delegates/location', async (req, res) => {
             delegate.lat = lat;
             delegate.lng = lng;
 
-            // حفظ التحديث في قاعدة البيانات
             if (isMongoConnected && mongoose.connection.readyState === 1) {
                 await SafiraModel.findOneAndUpdate(
                     { singletonKey: 'main_db' },
@@ -224,8 +269,6 @@ app.post('/api/delegates/location', async (req, res) => {
         res.status(500).json({ success: false, error: err.message });
     }
 });
-
-// ==========================================
 
 app.post('/api/fix-auth', async (req, conres) => {
     try {
