@@ -108,6 +108,99 @@ app.use((req, res, next) => {
     next();
 });
 
+// --- مسارات طلبات الصرف والتسوية للتجار والمناديب ---
+
+// 1. إنشاء طلب صرف جديد (تاجر أو مندوب)
+app.post('/api/payouts/create', async (req, res) => {
+    try {
+        const payoutData = req.body;
+        if (!payoutData || !payoutData.id || !payoutData.amount) {
+            return res.status(400).json({ success: false, error: 'بيانات الطلب غير مكتملة' });
+        }
+
+        if (!fallbackDatabase.payouts) {
+            fallbackDatabase.payouts = [];
+        }
+
+        // إضافة الطلب لقائمة الـ payouts
+        fallbackDatabase.payouts.push(payoutData);
+
+        // الحفظ في قاعدة البيانات MongoDB إذا كانت متصلة
+        if (isMongoConnected && mongoose.connection.readyState === 1) {
+            await SafiraModel.findOneAndUpdate(
+                { singletonKey: 'main_db' },
+                { data: fallbackDatabase },
+                { upsert: true, new: true }
+            );
+        }
+
+        res.status(200).json({ success: true, message: 'تم إرسال الطلب بنجاح', payout: payoutData });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// 2. معالجة سداد طلب الصرف (دفع كامل أو جزئي للمحاسب)
+app.post('/api/payouts/process', async (req, res) => {
+    try {
+        const { payoutId, paidAmount } = req.body;
+        
+        if (!fallbackDatabase.payouts) {
+            fallbackDatabase.payouts = [];
+        }
+
+        const payout = fallbackDatabase.payouts.find(p => p.id === payoutId);
+        
+        if (!payout) {
+            return res.status(404).json({ success: false, error: 'طلب التسوية غير موجود' });
+        }
+
+        const numericPaid = parseFloat(paidAmount) || 0;
+        if (numericPaid <= 0) {
+            return res.status(400).json({ success: false, error: 'مبلغ الدفع غير صالح' });
+        }
+
+        // خصم المبلغ المدفوع من رصيد التاجر إذا كان الطلب تخص تاجر
+        if (payout.merchantId) {
+            const merchant = (fallbackDatabase.merchants || []).find(m => m.id === payout.merchantId);
+            if (merchant) {
+                merchant.dues = Math.max(0, (merchant.dues || 0) - numericPaid);
+            }
+        } 
+        // أو إذا كان المندوب (حسب تصميمك لحسابات المناديب عهدة أو مستحقات)
+        else if (payout.courierId) {
+            const courier = (fallbackDatabase.delegates || []).find(c => c.id === payout.courierId);
+            // يمكنك إضافة منطق خصم العهدة هنا إذا أردت
+        }
+
+        // تحديث المبالغ وحالة الطلب
+        payout.paidAmount = (payout.paidAmount || 0) + numericPaid;
+        
+        if (payout.paidAmount >= payout.amount) {
+            payout.status = 'completed'; // تم السداد بالكامل
+            payout.remainingAmount = 0;
+        } else {
+            payout.status = 'partial'; // سداد جزئي
+            payout.remainingAmount = payout.amount - payout.paidAmount;
+        }
+
+        // الحفظ في قاعدة البيانات
+        if (isMongoConnected && mongoose.connection.readyState === 1) {
+            await SafiraModel.findOneAndUpdate(
+                { singletonKey: 'main_db' },
+                { data: fallbackDatabase },
+                { upsert: true, new: true }
+            );
+        }
+
+        res.json({ success: true, message: 'تم خصم المبلغ وتحديث الحساب بنجاح', payout });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+
+
 app.get('/api/sync', async (req, res) => {
     try {
         if (isMongoConnected && mongoose.connection.readyState === 1) {
