@@ -7,7 +7,12 @@ const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-app.use(cors());
+const cors = require('cors');
+app.use(cors({
+  origin: "*",
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
 app.use(express.json({ limit: '15mb' }));
 
 let fallbackDatabase = {
