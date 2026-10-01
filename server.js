@@ -108,19 +108,48 @@ app.use((req, res, next) => {
     next();
 });
 
-app.get('/api/sync', async (req, res) => {
+// --- المسارات الناقصة اللي الفرونت محتاجها ---
+
+app.get('/api/merchants', (req, res) => {
+    res.json(fallbackDatabase.merchants || []);
+});
+
+app.get('/api/couriers', (req, res) => {
+    res.json(fallbackDatabase.delegates || []);
+});
+
+app.get('/api/shipments', (req, res) => {
+    res.json(fallbackDatabase.orders || []);
+});
+
+app.post('/api/login', (req, res) => {
+    const { username, password } = req.body;
+    // مؤقتا لحد ما تعمل جدول يوزرات
+    if(username === 'admin' && password === 'admin') {
+        return res.json({ success: true, message: 'Login ok' });
+    }
+    // لو عايزه يقبل اي يوزر زي ما كنت عامله
+    return res.json({ success: true, message: 'Login ok (fallback)' });
+});
+
+// فيه غلطة املائية عندك في المسار ده، صلحها
+app.post('/api/fix-auth', async (req, res) => {
     try {
-        if (isMongoConnected && mongoose.connection.readyState === 1) {
-            const doc = await SafiraModel.findOne({ singletonKey: 'main_db' });
-            if (doc && doc.data) {
-                return res.json({ success: true, data: doc.data, storage: 'mongodb' });
-            }
-        }
-        res.json({ success: true, data: fallbackDatabase, storage: 'in-memory-resilient' });
+        const { newUri } = req.body;
+        if (newUri) mongoUri = newUri;
+        if (mongoose.connection.readyState !== 0) await mongoose.disconnect();
+        isMongoConnected = false;
+        await connectDB();
+        res.json({
+            success: isMongoConnected,
+            connected: isMongoConnected,
+            message: isMongoConnected ? 'MongoDB connected!' : 'Auth failed.'
+        });
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message, data: fallbackDatabase });
+        res.status(500).json({ success: false, error: err.message });
     }
 });
+
 
 app.post('/api/sync', async (req, res) => {
     try {
