@@ -1,13 +1,11 @@
 require('dotenv').config();
-const dns = require('dns');
-dns.setServers(['8.8.8.8', '1.1.1.1']);
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-const cors = require('cors');
 app.use(cors({
   origin: "*",
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -75,20 +73,12 @@ async function connectDB() {
 }
 connectDB();
 
-app.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    next();
-});
-
 // المسارات الجديدة للفرونت
 app.get('/api/merchants', (req, res) => res.json(fallbackDatabase.merchants || []));
 app.get('/api/couriers', (req, res) => res.json(fallbackDatabase.delegates || []));
 app.get('/api/shipments', (req, res) => res.json(fallbackDatabase.orders || []));
 app.post('/api/login', (req, res) => res.json({ success: true }));
 
-// مساراتك الأصلية
 app.get('/api/sync', async (req, res) => {
     try {
         if (isMongoConnected && mongoose.connection.readyState === 1) {
