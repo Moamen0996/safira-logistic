@@ -1,12 +1,9 @@
 require('dotenv').config();
-
 const dns = require('dns');
 dns.setServers(['8.8.8.8', '1.1.1.1']);
-
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-
 const app = express();
 const PORT = process.env.PORT || 8080;
 
@@ -41,10 +38,8 @@ const safiraSchema = new mongoose.Schema({
     singletonKey: { type: String, default: 'main_db', unique: true },
     data: { type: Object, required: true }
 }, { timestamps: true });
-
 const SafiraModel = mongoose.model('SafiraData', safiraSchema);
 let isMongoConnected = false;
-
 let mongoUri = process.env.MONGODB_URI || process.env.MONGO_URL || 'mongodb+srv://safira:safira2026@cluster0.yucaqm0.mongodb.net/?appName=Cluster0';
 
 function sanitizeMongoUri(uri) {
@@ -53,52 +48,26 @@ function sanitizeMongoUri(uri) {
         const regex = /^(mongodb(?:\+srv)?:\/\/)([^:]+):([^@]+)@(.*)$/;
         const match = uri.match(regex);
         if (match) {
-            const prefix = match[1];
-            const user = match[2];
-            const pass = match[3];
-            const rest = match[4];
-            
-            let decodedPass = pass;
-            try { decodedPass = decodeURIComponent(pass); } catch(e) {}
-            const encodedPass = encodeURIComponent(decodedPass);
-            
-            return `${prefix}${user}:${encodedPass}@${rest}`;
+            const prefix = match[1]; const user = match[2]; const pass = match[3]; const rest = match[4];
+            let decodedPass = pass; try { decodedPass = decodeURIComponent(pass); } catch(e) {}
+            return `${prefix}${user}:${encodeURIComponent(decodedPass)}@${rest}`;
         }
-    } catch (e) {
-        console.error('Error sanitizing MongoDB URI:', e.message);
-    }
+    } catch (e) {}
     return uri;
 }
 
 async function connectDB() {
-    if (!mongoUri || mongoUri.includes('YOUR_USERNAME')) {
-        console.log('⚠️ لم يتم إدخال رابط MongoDB Atlas الحقيقي بعد. السيرفر يعمل حالياً بنظام الذاكرة المؤقتة.');
-        return;
-    }
-    
+    if (!mongoUri || mongoUri.includes('YOUR_USERNAME')) return;
     const cleanUri = sanitizeMongoUri(mongoUri);
-
     try {
-        console.log('Attempting connection to MongoDB Atlas cluster...');
-        await mongoose.connect(cleanUri, {
-            serverSelectionTimeoutMS: 5000,
-            family: 4
-        });
+        await mongoose.connect(cleanUri, { serverSelectionTimeoutMS: 5000, family: 4 });
         isMongoConnected = true;
-        console.log('Successfully connected to MongoDB Atlas!');
-        
+        console.log('Connected to MongoDB!');
         const existing = await SafiraModel.findOne({ singletonKey: 'main_db' });
-        if (!existing) {
-            await SafiraModel.create({ singletonKey: 'main_db', data: fallbackDatabase });
-        } else {
-            fallbackDatabase = existing.data;
-        }
-    } catch (err) {
-        isMongoConnected = false;
-        console.error('MongoDB connection error (Auth/Network):', err.message);
-    }
+        if (!existing) await SafiraModel.create({ singletonKey: 'main_db', data: fallbackDatabase });
+        else fallbackDatabase = existing.data;
+    } catch (err) { isMongoConnected = false; console.error('MongoDB error:', err.message); }
 }
-
 connectDB();
 
 app.use((req, res, next) => {
@@ -108,318 +77,105 @@ app.use((req, res, next) => {
     next();
 });
 
-// --- المسارات الناقصة اللي الفرونت محتاجها ---
+// المسارات الجديدة للفرونت
+app.get('/api/merchants', (req, res) => res.json(fallbackDatabase.merchants || []));
+app.get('/api/couriers', (req, res) => res.json(fallbackDatabase.delegates || []));
+app.get('/api/shipments', (req, res) => res.json(fallbackDatabase.orders || []));
+app.post('/api/login', (req, res) => res.json({ success: true }));
 
-app.get('/api/merchants', (req, res) => {
-    res.json(fallbackDatabase.merchants || []);
-});
-
-app.get('/api/couriers', (req, res) => {
-    res.json(fallbackDatabase.delegates || []);
-});
-
-app.get('/api/shipments', (req, res) => {
-    res.json(fallbackDatabase.orders || []);
-});
-
-app.post('/api/login', (req, res) => {
-    const { username, password } = req.body;
-    // مؤقتا لحد ما تعمل جدول يوزرات
-    if(username === 'admin' && password === 'admin') {
-        return res.json({ success: true, message: 'Login ok' });
-    }
-    // لو عايزه يقبل اي يوزر زي ما كنت عامله
-    return res.json({ success: true, message: 'Login ok (fallback)' });
-});
-
-// فيه غلطة املائية عندك في المسار ده، صلحها
-app.post('/api/fix-auth', async (req, res) => {
+// مساراتك الأصلية
+app.get('/api/sync', async (req, res) => {
     try {
-        const { newUri } = req.body;
-        if (newUri) mongoUri = newUri;
-        if (mongoose.connection.readyState !== 0) await mongoose.disconnect();
-        isMongoConnected = false;
-        await connectDB();
-        res.json({
-            success: isMongoConnected,
-            connected: isMongoConnected,
-            message: isMongoConnected ? 'MongoDB connected!' : 'Auth failed.'
-        });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
-    }
+        if (isMongoConnected && mongoose.connection.readyState === 1) {
+            const doc = await SafiraModel.findOne({ singletonKey: 'main_db' });
+            if (doc && doc.data) return res.json({ success: true, data: doc.data, storage: 'mongodb' });
+        }
+        res.json({ success: true, data: fallbackDatabase, storage: 'in-memory' });
+    } catch (err) { res.status(500).json({ success: false, error: err.message, data: fallbackDatabase }); }
 });
-
 
 app.post('/api/sync', async (req, res) => {
     try {
-        const newData = req.body;
-        if (!newData) {
-            return res.status(400).json({ success: false, error: 'Invalid data payload' });
-        }
-        
-        fallbackDatabase = newData;
-
-        if (isMongoConnected && mongoose.connection.readyState === 1) {
-            await SafiraModel.findOneAndUpdate(
-                { singletonKey: 'main_db' },
-                { data: newData },
-                { upsert: true, new: true }
-            );
-        }
-        res.json({ success: true, message: 'Data synced successfully', storage: isMongoConnected ? 'mongodb' : 'in-memory-resilient' });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
-    }
+        fallbackDatabase = req.body;
+        if (isMongoConnected) await SafiraModel.findOneAndUpdate({ singletonKey: 'main_db' }, { data: fallbackDatabase }, { upsert: true });
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 app.post('/api/merchants', async (req, res) => {
-    try {
-        const { name, phone } = req.body;
-        if (!name || !phone) {
-            return res.status(400).json({ success: false, error: 'الرجاء إدخال اسم التاجر ورقم الهاتف' });
-        }
-        
-        if (!fallbackDatabase.merchants) {
-            fallbackDatabase.merchants = [];
-        }
-        
-        const newMerchant = { id: `MER-${Date.now()}`, name, phone, dues: 0 };
-        fallbackDatabase.merchants.push(newMerchant);
-
-        if (isMongoConnected && mongoose.connection.readyState === 1) {
-            await SafiraModel.findOneAndUpdate(
-                { singletonKey: 'main_db' },
-                { data: fallbackDatabase },
-                { upsert: true, new: true }
-            );
-        }
-
-        res.status(200).json({ success: true, message: 'تم حفظ التاجر بنجاح', merchant: newMerchant });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
-    }
+    const { name, phone } = req.body;
+    if (!name || !phone) return res.status(400).json({ success: false, error: 'بيانات ناقصة' });
+    const newMerchant = { id: `MER-${Date.now()}`, name, phone, dues: 0 };
+    fallbackDatabase.merchants.push(newMerchant);
+    if (isMongoConnected) await SafiraModel.findOneAndUpdate({ singletonKey: 'main_db' }, { data: fallbackDatabase }, { upsert: true });
+    res.json({ success: true, merchant: newMerchant });
 });
 
 app.post('/api/couriers', async (req, res) => {
-    try {
-        const { name, phone } = req.body;
-        if (!name || !phone) {
-            return res.status(400).json({ success: false, error: 'الرجاء إدخال اسم المندوب ورقم الهاتف' });
-        }
-
-        if (!fallbackDatabase.delegates) {
-            fallbackDatabase.delegates = [];
-        }
-
-        const newCourier = { id: `DEL-${Date.now()}`, name, phone, username: `courier_${Date.now()}`, password: '123', lat: 30.0444, lng: 31.2357 };
-        fallbackDatabase.delegates.push(newCourier);
-
-        if (isMongoConnected && mongoose.connection.readyState === 1) {
-            await SafiraModel.findOneAndUpdate(
-                { singletonKey: 'main_db' },
-                { data: fallbackDatabase },
-                { upsert: true, new: true }
-            );
-        }
-
-        res.status(200).json({ success: true, message: 'تم حفظ المندوب بنجاح', courier: newCourier });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
-    }
+    const { name, phone } = req.body;
+    if (!name || !phone) return res.status(400).json({ success: false, error: 'بيانات ناقصة' });
+    const newCourier = { id: `DEL-${Date.now()}`, name, phone, username: `courier_${Date.now()}`, password: '123', lat: 30.0444, lng: 31.2357 };
+    fallbackDatabase.delegates.push(newCourier);
+    if (isMongoConnected) await SafiraModel.findOneAndUpdate({ singletonKey: 'main_db' }, { data: fallbackDatabase }, { upsert: true });
+    res.json({ success: true, courier: newCourier });
 });
 
 app.post('/api/orders/bulk', async (req, res) => {
-    try {
-        const { orders } = req.body;
-        if (!orders || !Array.isArray(orders)) {
-            return res.status(400).json({ success: false, error: 'البيانات المرسلة ليست مصفوفة صحيحة' });
-        }
-        
-        if (!fallbackDatabase.orders) {
-            fallbackDatabase.orders = [];
-        }
-        
-        fallbackDatabase.orders.push(...orders);
-
-        if (isMongoConnected && mongoose.connection.readyState === 1) {
-            await SafiraModel.findOneAndUpdate(
-                { singletonKey: 'main_db' },
-                { data: fallbackDatabase },
-                { upsert: true, new: true }
-            );
-        }
-
-        res.status(201).json({ success: true, message: 'تم حفظ الشحنات الجماعية بنجاح', count: orders.length });
-    } catch (err) {
-        res.status(400).json({ success: false, error: 'حدث خطأ أثناء حفظ الشحنات الجماعية', details: err.message });
-    }
+    const { orders } = req.body;
+    fallbackDatabase.orders.push(...orders);
+    if (isMongoConnected) await SafiraModel.findOneAndUpdate({ singletonKey: 'main_db' }, { data: fallbackDatabase }, { upsert: true });
+    res.status(201).json({ success: true, count: orders.length });
 });
 
 app.post('/api/delegates/login', async (req, res) => {
-    try {
-        const { username, password } = req.body;
-        const delegates = fallbackDatabase.delegates || [];
-        
-        const delegate = delegates.find(d => d.username === username && d.password === password);
-        
-        if (!delegate) {
-            return res.status(401).json({ success: false, error: 'اسم المستخدم أو كلمة المرور غير صحيحة' });
-        }
-
-        res.json({ success: true, delegate });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
-    }
+    const { username, password } = req.body;
+    const delegate = (fallbackDatabase.delegates || []).find(d => d.username === username && d.password === password);
+    if (!delegate) return res.status(401).json({ success: false, error: 'بيانات غلط' });
+    res.json({ success: true, delegate });
 });
 
 app.post('/api/delegates/location', async (req, res) => {
-    try {
-        const { delegateId, lat, lng } = req.body;
-        const delegates = fallbackDatabase.delegates || [];
-        
-        const delegate = delegates.find(d => d.id === delegateId);
-        if (delegate) {
-            delegate.lat = lat;
-            delegate.lng = lng;
-
-            if (isMongoConnected && mongoose.connection.readyState === 1) {
-                await SafiraModel.findOneAndUpdate(
-                    { singletonKey: 'main_db' },
-                    { data: fallbackDatabase },
-                    { upsert: true, new: true }
-                );
-            }
-            return res.json({ success: true, message: 'تم تحديث الموقع بنجاح' });
-        }
-
-        res.status(404).json({ success: false, error: 'المندوب غير موجود' });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+    const { delegateId, lat, lng } = req.body;
+    const delegate = (fallbackDatabase.delegates || []).find(d => d.id === delegateId);
+    if (delegate) {
+        delegate.lat = lat; delegate.lng = lng;
+        if (isMongoConnected) await SafiraModel.findOneAndUpdate({ singletonKey: 'main_db' }, { data: fallbackDatabase }, { upsert: true });
+        return res.json({ success: true });
     }
+    res.status(404).json({ success: false });
 });
 
-app.post('/api/fix-auth', async (req, conres) => {
+app.post('/api/fix-auth', async (req, res) => {
     try {
-        const { newUri } = req.body;
-        if (newUri) {
-            mongoUri = newUri;
-        }
-        
-        if (mongoose.connection.readyState !== 0) {
-            await mongoose.disconnect();
-        }
-        
-        isMongoConnected = false;
-        await connectDB();
-        
-        conres.json({
-            success: isMongoConnected,
-            connected: isMongoConnected,
-            message: isMongoConnected ? 'MongoDB connected successfully!' : 'Authentication failed.'
-        });
-    } catch (err) {
-        conres.status(500).json({ success: false, error: err.message });
-    }
+        if (req.body.newUri) mongoUri = req.body.newUri;
+        if (mongoose.connection.readyState !== 0) await mongoose.disconnect();
+        isMongoConnected = false; await connectDB();
+        res.json({ success: isMongoConnected, connected: isMongoConnected });
+    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// --- مسارات طلبات الصرف والتسوية للتجار والمناديب ---
-
-// 1. إنشاء طلب صرف جديد (تاجر أو مندوب)
 app.post('/api/payouts/create', async (req, res) => {
-    try {
-        const payoutData = req.body;
-        if (!payoutData || !payoutData.id || !payoutData.amount) {
-            return res.status(400).json({ success: false, error: 'بيانات الطلب غير مكتملة' });
-        }
-
-        if (!fallbackDatabase.payouts) {
-            fallbackDatabase.payouts = [];
-        }
-
-        // إضافة الطلب لقائمة الـ payouts
-        fallbackDatabase.payouts.push(payoutData);
-
-        // الحفظ في قاعدة البيانات MongoDB إذا كانت متصلة
-        if (isMongoConnected && mongoose.connection.readyState === 1) {
-            await SafiraModel.findOneAndUpdate(
-                { singletonKey: 'main_db' },
-                { data: fallbackDatabase },
-                { upsert: true, new: true }
-            );
-        }
-
-        res.status(200).json({ success: true, message: 'تم إرسال الطلب بنجاح', payout: payoutData });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
-    }
+    if (!fallbackDatabase.payouts) fallbackDatabase.payouts = [];
+    fallbackDatabase.payouts.push(req.body);
+    if (isMongoConnected) await SafiraModel.findOneAndUpdate({ singletonKey: 'main_db' }, { data: fallbackDatabase }, { upsert: true });
+    res.json({ success: true, payout: req.body });
 });
 
-// 2. معالجة سداد طلب الصرف (دفع كامل أو جزئي للمحاسب)
 app.post('/api/payouts/process', async (req, res) => {
-    try {
-        const { payoutId, paidAmount } = req.body;
-        
-        if (!fallbackDatabase.payouts) {
-            fallbackDatabase.payouts = [];
-        }
-
-        const payout = fallbackDatabase.payouts.find(p => p.id === payoutId);
-        
-        if (!payout) {
-            return res.status(404).json({ success: false, error: 'طلب التسوية غير موجود' });
-        }
-
-        const numericPaid = parseFloat(paidAmount) || 0;
-        if (numericPaid <= 0) {
-            return res.status(400).json({ success: false, error: 'مبلغ الدفع غير صالح' });
-        }
-
-        // خصم المبلغ المدفوع من رصيد التاجر إذا كان الطلب تخص تاجر
-        if (payout.merchantId) {
-            const merchant = (fallbackDatabase.merchants || []).find(m => m.id === payout.merchantId);
-            if (merchant) {
-                merchant.dues = Math.max(0, (merchant.dues || 0) - numericPaid);
-            }
-        } 
-        // أو إذا كان المندوب (حسب تصميمك لحسابات المناديب عهدة أو مستحقات)
-        else if (payout.courierId) {
-            const courier = (fallbackDatabase.delegates || []).find(c => c.id === payout.courierId);
-            // يمكنك إضافة منطق خصم العهدة هنا إذا أردت
-        }
-
-        // تحديث المبالغ وحالة الطلب
-        payout.paidAmount = (payout.paidAmount || 0) + numericPaid;
-        
-        if (payout.paidAmount >= payout.amount) {
-            payout.status = 'completed'; // تم السداد بالكامل
-            payout.remainingAmount = 0;
-        } else {
-            payout.status = 'partial'; // سداد جزئي
-            payout.remainingAmount = payout.amount - payout.paidAmount;
-        }
-
-        // الحفظ في قاعدة البيانات
-        if (isMongoConnected && mongoose.connection.readyState === 1) {
-            await SafiraModel.findOneAndUpdate(
-                { singletonKey: 'main_db' },
-                { data: fallbackDatabase },
-                { upsert: true, new: true }
-            );
-        }
-
-        res.json({ success: true, message: 'تم خصم المبلغ وتحديث الحساب بنجاح', payout });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+    const { payoutId, paidAmount } = req.body;
+    const payout = (fallbackDatabase.payouts || []).find(p => p.id === payoutId);
+    if (!payout) return res.status(404).json({ success: false });
+    const numericPaid = parseFloat(paidAmount) || 0;
+    payout.paidAmount = (payout.paidAmount || 0) + numericPaid;
+    payout.status = payout.paidAmount >= payout.amount ? 'completed' : 'partial';
+    payout.remainingAmount = payout.amount - payout.paidAmount;
+    if (payout.merchantId) {
+        const merchant = (fallbackDatabase.merchants || []).find(m => m.id === payout.merchantId);
+        if (merchant) merchant.dues = Math.max(0, (merchant.dues || 0) - numericPaid);
     }
+    if (isMongoConnected) await SafiraModel.findOneAndUpdate({ singletonKey: 'main_db' }, { data: fallbackDatabase }, { upsert: true });
+    res.json({ success: true, payout });
 });
 
-
-
-app.get('/', (req, res) => {
-    res.send('Safira Logistics Cloud Server is running successfully!');
-});
-
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Safira Logistics Cloud Server is running on port ${PORT}`);
-});
+app.get('/', (req, res) => res.send('Safira Logistics Cloud Server is running successfully!'));
+app.listen(PORT, '0.0.0.0', () => console.log(`Server running on ${PORT}`));
