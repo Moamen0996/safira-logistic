@@ -73,7 +73,6 @@ async function connectDB() {
 }
 connectDB();
 
-// المسارات الجديدة للفرونت
 app.get('/api/merchants', (req, res) => res.json(fallbackDatabase.merchants || []));
 app.get('/api/couriers', (req, res) => res.json(fallbackDatabase.delegates || []));
 app.get('/api/shipments', (req, res) => res.json(fallbackDatabase.orders || []));
