@@ -113,14 +113,33 @@ app.post('/api/couriers', async (req, res) => {
     if (isMongoConnected) await SafiraModel.findOneAndUpdate({ singletonKey: 'main_db' }, { data: fallbackDatabase }, { upsert: true });
     res.json({ success: true, courier: newCourier });
 });
-
 app.post('/api/orders/bulk', async (req, res) => {
-    const { orders } = req.body;
-    fallbackDatabase.orders.push(...orders);
-    if (isMongoConnected) await SafiraModel.findOneAndUpdate({ singletonKey: 'main_db' }, { data: fallbackDatabase }, { upsert: true });
-    res.status(201).json({ success: true, count: orders.length });
-});
+    try {
+        const { orders } = req.body;
+        if (!Array.isArray(orders)) {
+            return res.status(400).json({ success: false, error: 'البيانات المرسلة ليست مصفوفة شحنات صحيحة' });
+        }
+        
+        // التأكد من تهيئة المصفوفات لتجنب انهيار السيرفر
+        if (!fallbackDatabase.shipments) fallbackDatabase.shipments = [];
+        if (!fallbackDatabase.orders) fallbackDatabase.orders = [];
 
+        // إدراج الطلبات في المفتاحين لضمان التوافقية التامة
+        fallbackDatabase.shipments.push(...orders);
+        fallbackDatabase.orders.push(...orders);
+
+        if (isMongoConnected) {
+            await SafiraModel.findOneAndUpdate(
+                { singletonKey: 'main_db' }, 
+                { data: fallbackDatabase }, 
+                { upsert: true }
+            );
+        }
+        res.status(201).json({ success: true, count: orders.length });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
 app.post('/api/delegates/login', async (req, res) => {
     const { username, password } = req.body;
     const delegate = (fallbackDatabase.delegates || []).find(d => d.username === username && d.password === password);
