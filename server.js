@@ -74,8 +74,8 @@ async function connectDB() {
 connectDB();
 
 app.get('/api/merchants', (req, res) => res.json(fallbackDatabase.merchants || []));
-app.get('/api/couriers', (req, res) => res.json(fallbackDatabase.delegates || []));
-app.get('/api/shipments', (req, res) => res.json(fallbackDatabase.orders || []));
+app.get('/api/couriers', (req, res) => res.json(fallbackDatabase.couriers || fallbackDatabase.delegates || []));
+app.get('/api/shipments', (req, res) => res.json(fallbackDatabase.shipments || fallbackDatabase.orders || []));
 app.post('/api/login', (req, res) => res.json({ success: true }));
 
 app.get('/api/sync', async (req, res) => {
