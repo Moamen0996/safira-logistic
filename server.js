@@ -108,9 +108,16 @@ app.post('/api/merchants', async (req, res) => {
 app.post('/api/couriers', async (req, res) => {
     const { name, phone } = req.body;
     if (!name || !phone) return res.status(400).json({ success: false, error: 'بيانات ناقصة' });
+    
+    // التأكد من أن مصفوفة delegates موجودة وليست undefined لتجنب الانهيار
+    if (!fallbackDatabase.delegates) fallbackDatabase.delegates = [];
+
     const newCourier = { id: `DEL-${Date.now()}`, name, phone, username: `courier_${Date.now()}`, password: '123', lat: 30.0444, lng: 31.2357 };
     fallbackDatabase.delegates.push(newCourier);
-    if (isMongoConnected) await SafiraModel.findOneAndUpdate({ singletonKey: 'main_db' }, { data: fallbackDatabase }, { upsert: true });
+    
+    if (isMongoConnected) {
+        await SafiraModel.findOneAndUpdate({ singletonKey: 'main_db' }, { data: fallbackDatabase }, { upsert: true });
+    }
     res.json({ success: true, courier: newCourier });
 });
 app.post('/api/orders/bulk', async (req, res) => {
