@@ -1,4 +1,3 @@
-require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -41,35 +40,46 @@ const safiraSchema = new mongoose.Schema({
     singletonKey: { type: String, default: 'main_db', unique: true },
     data: { type: Object, required: true }
 }, { timestamps: true });
-const SafiraModel = mongoose.model('SafiraData', safiraSchema);
+const SafiraModel = mongoose.models.SafiraData || mongoose.model('SafiraData', safiraSchema);
 
 let isMongoConnected = false;
-let mongoUri = process.env.MONGODB_URI || process.env.MONGO_URL || 'mongodb+srv://safira:safira2026@cluster0.yucaqm0.mongodb.net/safira?retryWrites=true&w=majority&appName=Cluster0';
-
-function sanitizeMongoUri(uri) {
-    if (!uri) return '';
-    try {
-        const regex = /^(mongodb(?:\+srv)?:\/\/)([^:]+):([^@]+)@(.*)$/;
-        const match = uri.match(regex);
-        if (match) {
-            return `${match[1]}${match[2]}:${encodeURIComponent(decodeURIComponent(match[3]))}@${match[4]}`;
-        }
-    } catch (e) {}
-    return uri;
-}
 
 async function connectDB() {
-    if (!mongoUri || mongoUri.includes('YOUR_USERNAME')) return;
-    const cleanUri = sanitizeMongoUri(mongoUri);
+    const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URL;
+    console.log("ENV CHECK - MONGODB_URI exists:", !!mongoUri);
+    
+    if (!mongoUri) {
+      console.log("No MONGODB_URI found in env vars!");
+      return false;
+    }
+
+    if (mongoose.connection.readyState === 1) {
+      isMongoConnected = true;
+      return true;
+    }
+
     try {
-        await mongoose.connect(cleanUri, { serverSelectionTimeoutMS: 5000, family: 4 });
+        console.log("Trying to connect to MongoDB...");
+        await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 8000 });
         isMongoConnected = true;
-        console.log('Connected to MongoDB!');
+        console.log('Connected to MongoDB! ✅');
+
         const existing = await SafiraModel.findOne({ singletonKey: 'main_db' });
-        if (!existing) await SafiraModel.create({ singletonKey: 'main_db', data: fallbackDatabase });
-        else fallbackDatabase = existing.data;
-    } catch (err) { isMongoConnected = false; console.error('MongoDB error:', err.message); }
+        if (!existing) {
+          console.log("Creating initial DB document");
+          await SafiraModel.create({ singletonKey: 'main_db', data: fallbackDatabase });
+        } else {
+          fallbackDatabase = existing.data;
+          console.log("Loaded data from MongoDB");
+        }
+        return true;
+    } catch (err) { 
+      isMongoConnected = false; 
+      console.error('MongoDB error:', err.message); 
+      return false;
+    }
 }
+// اول اتصال
 connectDB();
 
 app.get('/api/merchants', (req, res) => res.json(fallbackDatabase.merchants || []));
@@ -79,18 +89,29 @@ app.post('/api/login', (req, res) => res.json({ success: true }));
 
 app.get('/api/sync', async (req, res) => {
     try {
+        // حاول تتصل لو مش متصل
+        if (mongoose.connection.readyState !== 1) {
+          await connectDB();
+        }
+
+        console.log(`/api/sync - readyState: ${mongoose.connection.readyState}, isConnected: ${isMongoConnected}, hasEnv: ${!!process.env.MONGODB_URI}`);
+
         if (isMongoConnected && mongoose.connection.readyState === 1) {
             const doc = await SafiraModel.findOne({ singletonKey: 'main_db' });
-            if (doc && doc.data) return res.json({ success: true, data: doc.data, storage: 'mongodb' });
+            if (doc && doc.data) return res.json({ success: true, data: doc.data, storage: 'mongodb', readyState: mongoose.connection.readyState, hasEnv: !!process.env.MONGODB_URI });
         }
-        res.json({ success: true, data: fallbackDatabase, storage: 'in-memory' });
-    } catch (err) { res.status(500).json({ success: false, error: err.message, data: fallbackDatabase }); }
+        res.json({ success: true, data: fallbackDatabase, storage: 'in-memory', readyState: mongoose.connection.readyState, hasEnv: !!process.env.MONGODB_URI, isMongoConnected });
+    } catch (err) { 
+      console.error("sync error", err.message);
+      res.status(500).json({ success: false, error: err.message, data: fallbackDatabase, readyState: mongoose.connection.readyState, hasEnv: !!process.env.MONGODB_URI }); 
+    }
 });
 
 app.post('/api/sync', async (req, res) => {
     try {
         fallbackDatabase = req.body;
-        if (isMongoConnected) await SafiraModel.findOneAndUpdate({ singletonKey: 'main_db' }, { data: fallbackDatabase }, { upsert: true });
+        if (mongoose.connection.readyState === 1) await SafiraModel.findOneAndUpdate({ singletonKey: 'main_db' }, { data: fallbackDatabase }, { upsert: true });
+        else await connectDB().then(async()=>{ if(mongoose.connection.readyState===1) await SafiraModel.findOneAndUpdate({ singletonKey: 'main_db' }, { data: fallbackDatabase }, { upsert: true }) });
         res.json({ success: true });
     } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
@@ -100,7 +121,7 @@ app.post('/api/merchants', async (req, res) => {
     if (!name || !phone) return res.status(400).json({ success: false, error: 'بيانات ناقصة' });
     const newMerchant = { id: `MER-${Date.now()}`, name, phone, dues: 0 };
     fallbackDatabase.merchants.push(newMerchant);
-    if (isMongoConnected) await SafiraModel.findOneAndUpdate({ singletonKey: 'main_db' }, { data: fallbackDatabase }, { upsert: true });
+    if (mongoose.connection.readyState === 1) await SafiraModel.findOneAndUpdate({ singletonKey: 'main_db' }, { data: fallbackDatabase }, { upsert: true });
     res.json({ success: true, merchant: newMerchant });
 });
 
@@ -110,7 +131,7 @@ app.post('/api/couriers', async (req, res) => {
     if (!fallbackDatabase.delegates) fallbackDatabase.delegates = [];
     const newCourier = { id: `DEL-${Date.now()}`, name, phone, username: `courier_${Date.now()}`, password: '123', lat: 30.0444, lng: 31.2357 };
     fallbackDatabase.delegates.push(newCourier);
-    if (isMongoConnected) await SafiraModel.findOneAndUpdate({ singletonKey: 'main_db' }, { data: fallbackDatabase }, { upsert: true });
+    if (mongoose.connection.readyState === 1) await SafiraModel.findOneAndUpdate({ singletonKey: 'main_db' }, { data: fallbackDatabase }, { upsert: true });
     res.json({ success: true, courier: newCourier });
 });
 
@@ -122,7 +143,7 @@ app.post('/api/orders/bulk', async (req, res) => {
         if (!fallbackDatabase.orders) fallbackDatabase.orders = [];
         fallbackDatabase.shipments.push(...orders);
         fallbackDatabase.orders.push(...orders);
-        if (isMongoConnected) await SafiraModel.findOneAndUpdate({ singletonKey: 'main_db' }, { data: fallbackDatabase }, { upsert: true });
+        if (mongoose.connection.readyState === 1) await SafiraModel.findOneAndUpdate({ singletonKey: 'main_db' }, { data: fallbackDatabase }, { upsert: true });
         res.status(201).json({ success: true, count: orders.length });
     } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
@@ -139,7 +160,7 @@ app.post('/api/delegates/location', async (req, res) => {
     const delegate = (fallbackDatabase.delegates || []).find(d => d.id === delegateId);
     if (delegate) {
         delegate.lat = lat; delegate.lng = lng;
-        if (isMongoConnected) await SafiraModel.findOneAndUpdate({ singletonKey: 'main_db' }, { data: fallbackDatabase }, { upsert: true });
+        if (mongoose.connection.readyState === 1) await SafiraModel.findOneAndUpdate({ singletonKey: 'main_db' }, { data: fallbackDatabase }, { upsert: true });
         return res.json({ success: true });
     }
     res.status(404).json({ success: false });
@@ -148,7 +169,7 @@ app.post('/api/delegates/location', async (req, res) => {
 app.post('/api/payouts/create', async (req, res) => {
     if (!fallbackDatabase.payouts) fallbackDatabase.payouts = [];
     fallbackDatabase.payouts.push(req.body);
-    if (isMongoConnected) await SafiraModel.findOneAndUpdate({ singletonKey: 'main_db' }, { data: fallbackDatabase }, { upsert: true });
+    if (mongoose.connection.readyState === 1) await SafiraModel.findOneAndUpdate({ singletonKey: 'main_db' }, { data: fallbackDatabase }, { upsert: true });
     res.json({ success: true, payout: req.body });
 });
 
@@ -164,15 +185,10 @@ app.post('/api/payouts/process', async (req, res) => {
         const merchant = (fallbackDatabase.merchants || []).find(m => m.id === payout.merchantId);
         if (merchant) merchant.dues = Math.max(0, (merchant.dues || 0) - numericPaid);
     }
-    if (isMongoConnected) await SafiraModel.findOneAndUpdate({ singletonKey: 'main_db' }, { data: fallbackDatabase }, { upsert: true });
+    if (mongoose.connection.readyState === 1) await SafiraModel.findOneAndUpdate({ singletonKey: 'main_db' }, { data: fallbackDatabase }, { upsert: true });
     res.json({ success: true, payout });
 });
 
 app.get('/', (req, res) => res.send('Safira Logistics Cloud Server is running successfully!'));
 
-// ده المهم لـ Vercel
-const PORT = process.env.PORT || 8080;
-if (require.main === module) {
-  app.listen(PORT, '0.0.0.0', () => console.log(`Server running on ${PORT}`));
-}
 module.exports = app;
