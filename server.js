@@ -199,3 +199,9 @@ app.post('/api/payouts/process', async (req, res) => {
 
 app.get('/', (req, res) => res.send('Safira Logistics Cloud Server is running successfully!'));
 app.listen(PORT, '0.0.0.0', () => console.log(`Server running on ${PORT}`));
+
+// بدل app.listen بس
+if (require.main === module) {
+  app.listen(process.env.PORT || 8080, () => console.log("Running"));
+}
+module.exports = app; // مهم جدا لـ Vercel
