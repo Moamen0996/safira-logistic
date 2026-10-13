@@ -4,16 +4,6 @@ const app = express();
 app.use(cors({ origin: true, credentials: true }));
 app.options('*', cors({ origin: true, credentials: true }));
 
-app.use(cors({
-  origin: [
-    "https://safira-admin-frontend-chi.vercel.app",
-    "https://safira-merchant-frontend-4bavsng-moamenmo50.vercel.app",
-    "https://safira-courier-frontend.vercel.app",
-    "http://localhost:3000"
-  ],
-  credentials: true
-}));
-
 app.use(express.json({ limit: '15mb' }));
 
 let fallbackDatabase = {
