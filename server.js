@@ -160,5 +160,148 @@ app.post('/api/payouts/process', async (req, res) => {
 });
 
 app.get('/', (req, res) => res.send('Safira Logistics Cloud Server is running successfully!'));
+// ===== نظام منع التسجيل المكرر السحابي =====
+if (!fallbackDatabase.merchantRequests) fallbackDatabase.merchantRequests = [];
+if (!fallbackDatabase.blockedIps) fallbackDatabase.blockedIps = [];
 
+// تسجيل تاجر جديد - بمنع سحابي (IP + phone + company)
+app.post('/api/merchants/register', async (req, res) => {
+    try {
+        const { ownerName, phone, companyName, type, commercialId, password } = req.body;
+
+        if (!phone ||!companyName ||!ownerName ||!password) {
+            return res.status(400).json({ success: false, message: 'بيانات ناقصة' });
+        }
+
+        // هات IP الحقيقي
+        const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+                         req.headers['x-real-ip'] ||
+                         req.ip ||
+                         'unknown';
+
+        // 1. شيك هل التليفون موجود قبل كده في التجار المقبولين أو الطلبات المعلقة
+        const phoneExists = fallbackDatabase.merchants?.some(m => m.phone === phone) ||
+                           fallbackDatabase.merchantRequests?.some(r => r.phone === phone && r.status!== 'مرفوض');
+
+        const companyExists = fallbackDatabase.merchants?.some(m => m.name === companyName) ||
+                             fallbackDatabase.merchantRequests?.some(r => r.companyName === companyName && r.status!== 'مرفوض');
+
+        if (phoneExists || companyExists) {
+            // سجل محاولة تكرار للإدارة
+            const duplicateAttempt = {
+                id: `DUP-${Date.now()}`,
+                ownerName, phone, companyName, type,
+                ip: clientIp,
+                reason: phoneExists? 'تكرار تليفون' : 'تكرار اسم شركة',
+                date: new Date().toISOString()
+            };
+            fallbackDatabase.merchantRequests.push({
+                id: `REQ-${Date.now()}`,
+                ownerName, phone, companyName, type, commercialId,
+                status: 'مرفوض - بيانات مسجلة مسبقاً',
+                ip: clientIp,
+                isDuplicate: true,
+                date: new Date().toLocaleString('ar-EG')
+            });
+
+            if (mongoose.connection.readyState === 1) {
+                await SafiraModel.findOneAndUpdate({ singletonKey: 'main_db' }, { data: fallbackDatabase }, { upsert: true });
+            }
+
+            return res.status(400).json({
+                success: false,
+                message: 'عذراً، هذه البيانات مسجلة مسبقاً لدى النظام وتم إرسال التنبيه للإدارة!',
+                duplicate: true
+            });
+        }
+
+        // 2. شيك هل نفس IP سجل قبل كده (خلال آخر 30 يوم مثلاً)
+        const ipExists = fallbackDatabase.merchantRequests?.some(r => r.ip === clientIp &&!r.isDuplicate) ||
+                        fallbackDatabase.merchants?.some(m => m.registeredIp === clientIp);
+
+        if (ipExists) {
+            fallbackDatabase.merchantRequests.push({
+                id: `REQ-${Date.now()}`,
+                ownerName, phone, companyName, type, commercialId,
+                status: 'مرفوض - تكرار IP',
+                ip: clientIp,
+                isDuplicate: true,
+                date: new Date().toLocaleString('ar-EG')
+            });
+
+            if (mongoose.connection.readyState === 1) {
+                await SafiraModel.findOneAndUpdate({ singletonKey: 'main_db' }, { data: fallbackDatabase }, { upsert: true });
+            }
+
+            return res.status(400).json({
+                success: false,
+                message: 'عذراً، هذا الجهاز مسجل لديه طلب مسبقاً لدى النظام وتم إرسال التنبيه للإدارة!',
+                duplicate: true
+            });
+        }
+
+        // 3. لو كله تمام - انشئ طلب جديد قيد المراجعة
+        const newRequest = {
+            id: `REQ-${Date.now()}`,
+            ownerName,
+            phone,
+            companyName,
+            type,
+            commercialId: type === 'company'? commercialId : 'غير مسجل',
+            password, // في الانتاج اعمل هاش
+            status: 'قيد المراجعة',
+            ip: clientIp,
+            registeredIp: clientIp,
+            date: new Date().toLocaleString('ar-EG'),
+            createdAt: new Date()
+        };
+
+        fallbackDatabase.merchantRequests.push(newRequest);
+
+        if (mongoose.connection.readyState === 1) {
+            await SafiraModel.findOneAndUpdate({ singletonKey: 'main_db' }, { data: fallbackDatabase }, { upsert: true });
+        }
+
+        res.status(201).json({
+            success: true,
+            message: 'تم إرسال طلب تسجيل متجرك بنجاح! الطلب حالياً قيد المراجعة',
+            request: newRequest
+        });
+
+    } catch (err) {
+        console.error('Register error:', err);
+        res.status(500).json({ success: false, message: 'خطأ في السيرفر' });
+    }
+});
+
+// عرض طلبات التسجيل للإدارة
+app.get('/api/merchant-requests', (req, res) => {
+    res.json(fallbackDatabase.merchantRequests || []);
+});
+
+// قبول تاجر (للإدارة)
+app.post('/api/merchant-requests/approve', async (req, res) => {
+    const { requestId } = req.body;
+    const request = (fallbackDatabase.merchantRequests || []).find(r => r.id === requestId);
+    if (!request) return res.status(404).json({ success: false });
+
+    request.status = 'مقبول';
+    const newMerchant = {
+        id: `MER-${Date.now()}`,
+        name: request.companyName,
+        ownerName: request.ownerName,
+        phone: request.phone,
+        type: request.type,
+        commercialId: request.commercialId,
+        registeredIp: request.ip,
+        dues: 0,
+        createdAt: new Date()
+    };
+    fallbackDatabase.merchants.push(newMerchant);
+
+    if (mongoose.connection.readyState === 1) {
+        await SafiraModel.findOneAndUpdate({ singletonKey: 'main_db' }, { data: fallbackDatabase }, { upsert: true });
+    }
+    res.json({ success: true, merchant: newMerchant });
+});
 module.exports = app;
