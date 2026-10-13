@@ -3,8 +3,6 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const app = express();
 app.use(cors({ origin: true, credentials: true }));
-
-
 app.use(express.json({ limit: '15mb' }));
 
 let fallbackDatabase = {
@@ -42,65 +40,40 @@ let isMongoConnected = false;
 
 async function connectDB() {
     const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URL;
-    console.log("ENV CHECK - MONGODB_URI exists:", !!mongoUri);
-    
-    if (!mongoUri) {
-      console.log("No MONGODB_URI found in env vars!");
-      return false;
-    }
-
-    if (mongoose.connection.readyState === 1) {
-      isMongoConnected = true;
-      return true;
-    }
-
+    if (!mongoUri) return false;
+    if (mongoose.connection.readyState === 1) { isMongoConnected = true; return true; }
     try {
-        console.log("Trying to connect to MongoDB...");
         await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 8000 });
         isMongoConnected = true;
-        console.log('Connected to MongoDB! ✅');
-
         const existing = await SafiraModel.findOne({ singletonKey: 'main_db' });
-        if (!existing) {
-          console.log("Creating initial DB document");
-          await SafiraModel.create({ singletonKey: 'main_db', data: fallbackDatabase });
-        } else {
-          fallbackDatabase = existing.data;
-          console.log("Loaded data from MongoDB");
-        }
+        if (!existing) await SafiraModel.create({ singletonKey: 'main_db', data: fallbackDatabase });
+        else fallbackDatabase = existing.data;
         return true;
-    } catch (err) { 
-      isMongoConnected = false; 
-      console.error('MongoDB error:', err.message); 
-      return false;
-    }
+    } catch (err) { isMongoConnected = false; return false; }
 }
-// اول اتصال
 connectDB();
 
+// ===== ROUTES FIXED =====
 app.get('/api/merchants', (req, res) => res.json(fallbackDatabase.merchants || []));
 app.get('/api/couriers', (req, res) => res.json(fallbackDatabase.couriers || fallbackDatabase.delegates || []));
+app.get('/api/delegates', (req, res) => res.json(fallbackDatabase.delegates || []));
 app.get('/api/shipments', (req, res) => res.json(fallbackDatabase.shipments || fallbackDatabase.orders || []));
+app.get('/api/orders', (req, res) => res.json(fallbackDatabase.orders || fallbackDatabase.shipments || []));
+app.get('/api/pricing', (req, res) => res.json(fallbackDatabase.pricing || []));
+app.get('/api/finance', (req, res) => res.json({ merchants: fallbackDatabase.merchants, payouts: fallbackDatabase.payouts, orders: fallbackDatabase.orders }));
+app.get('/api/payouts', (req, res) => res.json(fallbackDatabase.payouts || []));
+
 app.post('/api/login', (req, res) => res.json({ success: true }));
 
 app.get('/api/sync', async (req, res) => {
     try {
-        // حاول تتصل لو مش متصل
-        if (mongoose.connection.readyState !== 1) {
-          await connectDB();
-        }
-
-        console.log(`/api/sync - readyState: ${mongoose.connection.readyState}, isConnected: ${isMongoConnected}, hasEnv: ${!!process.env.MONGODB_URI}`);
-
+        if (mongoose.connection.readyState !== 1) await connectDB();
         if (isMongoConnected && mongoose.connection.readyState === 1) {
             const doc = await SafiraModel.findOne({ singletonKey: 'main_db' });
-            if (doc && doc.data) return res.json({ success: true, data: doc.data, storage: 'mongodb', readyState: mongoose.connection.readyState, hasEnv: !!process.env.MONGODB_URI });
+            if (doc && doc.data) return res.json({ success: true, data: doc.data, storage: 'mongodb' });
         }
-        res.json({ success: true, data: fallbackDatabase, storage: 'in-memory', readyState: mongoose.connection.readyState, hasEnv: !!process.env.MONGODB_URI, isMongoConnected });
-    } catch (err) { 
-      console.error("sync error", err.message);
-      res.status(500).json({ success: false, error: err.message, data: fallbackDatabase, readyState: mongoose.connection.readyState, hasEnv: !!process.env.MONGODB_URI }); 
-    }
+        res.json({ success: true, data: fallbackDatabase, storage: 'in-memory' });
+    } catch (err) { res.json({ success: true, data: fallbackDatabase, storage: 'in-memory' }); }
 });
 
 app.post('/api/sync', async (req, res) => {
@@ -112,6 +85,7 @@ app.post('/api/sync', async (req, res) => {
     } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// ... باقي الـ POST routes زي ما هي عندك
 app.post('/api/merchants', async (req, res) => {
     const { name, phone } = req.body;
     if (!name || !phone) return res.status(400).json({ success: false, error: 'بيانات ناقصة' });
