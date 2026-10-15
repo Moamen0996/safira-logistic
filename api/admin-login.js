@@ -1,6 +1,3 @@
-const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-const { username, password } = body || {};
-
 export default function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -9,12 +6,13 @@ export default function handler(req, res) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-    const { username, password } = req.body;
+    // قراءة وتحليل الـ body داخل الدالة بشكل آمن
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+    const { username, password } = body;
 
     const ADMIN_USER = process.env.ADMIN_USER || 'believer';
     const ADMIN_PASS = process.env.ADMIN_PASSWORD;
 
-    // طباعة القيم في الـ Logs لمعرفة ما الذي يتم مقارنته بالضبط
     console.log("Received username:", username, "Expected:", ADMIN_USER);
     console.log("Received password length:", password ? password.length : 0, "Expected length:", ADMIN_PASS ? ADMIN_PASS.length : 0);
 
