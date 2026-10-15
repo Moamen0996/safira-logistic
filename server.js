@@ -1,7 +1,7 @@
-// الصق الملف ده كامل في server.js
-const express = require('express');
-const cors = require('cors');
-const mongoose = require('mongoose');
+import express from 'express';
+import cors from 'cors';
+import mongoose from 'mongoose';
+
 const app = express();
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '15mb' }));
@@ -12,7 +12,7 @@ let fallbackDatabase = {
     merchants: [
         { id: "MER-201", name: "متجر القاهرة الإلكتروني", phone: "01011223344", dues: 2400 },
     ],
-    merchantRequests: [], // ده اللي هيظهر في الإدارة
+    merchantRequests: [],
     pricing: [],
     payouts: [],
     shipments: []
@@ -22,6 +22,7 @@ const safiraSchema = new mongoose.Schema({
     singletonKey: { type: String, default: 'main_db', unique: true },
     data: { type: Object, required: true }
 }, { timestamps: true });
+
 const SafiraModel = mongoose.models.SafiraData || mongoose.model('SafiraData', safiraSchema);
 
 async function connectDB() {
@@ -48,6 +49,7 @@ app.get('/api/sync', async (req, res) => {
         res.json({ success: true, data: fallbackDatabase, storage: 'in-memory' });
     } catch (err) { res.json({ success: true, data: fallbackDatabase }); }
 });
+
 app.post('/api/sync', async (req, res) => {
     try {
         fallbackDatabase = req.body;
@@ -60,7 +62,6 @@ app.post('/api/sync', async (req, res) => {
 app.get('/api/merchant-requests', (req, res) => res.json(fallbackDatabase.merchantRequests || []));
 app.get('/api/merchants', (req, res) => res.json(fallbackDatabase.merchants || []));
 
-// التسجيل الجديد بمنع سحابي
 app.post('/api/merchants/register', async (req, res) => {
     try {
         const { ownerName, phone, companyName, type, commercialId, password } = req.body;
@@ -102,4 +103,5 @@ app.post('/api/merchant-requests/reject', async (req, res) => {
 });
 
 app.get('/', (req, res) => res.send('Safira Logistics Cloud Server is running successfully!'));
-module.exports = app;
+
+export default app;
