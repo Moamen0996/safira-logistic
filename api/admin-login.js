@@ -1,10 +1,18 @@
 export default function handler(req, res) {
+    // السماح بالوصول من أي مصدر Frontend
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-    if (req.method === 'OPTIONS') return res.status(200).end();
-    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+    // الرد الفوري على طلبات الـ Preflight الخاصة بالمتصفح
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return;
+    }
+
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
@@ -13,11 +21,8 @@ export default function handler(req, res) {
         const ADMIN_USER = process.env.ADMIN_USER || 'believer';
         const ADMIN_PASS = process.env.ADMIN_PASSWORD;
 
-        console.log("Received username:", username, "Expected:", ADMIN_USER);
-        console.log("Received password length:", password ? password.length : 0);
-
         if (!ADMIN_PASS) {
-            return res.status(500).json({ success: false, message: 'ADMIN_PASSWORD مش مسجل في Vercel Env' });
+            return res.status(500).json({ success: false, message: 'ADMIN_PASSWORD غير مسجل في متغيرات البيئة' });
         }
 
         if (username === ADMIN_USER && password === ADMIN_PASS) {
