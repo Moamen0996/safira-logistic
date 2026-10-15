@@ -25,8 +25,8 @@ export default async function handler(req,res){
         return res.json({ success: true, user: { username, name: "مؤمن (الأونر)", role: "مدير عام (صلاحيات كاملة)" } });
       }
       const user = await col.findOne({ username, pass: password });
-      if(user){ const { pass, ...safeUser } = user; return res.json({ success: true, user: safeUser }); }
-      return res.status(401).json({ success: false });
+    if(user){ const { pass, ...safeUser } = user; return res.json({ success: true, user: safeUser }); }
+return res.status(401).json({ success: false });
     }
     if(action === 'create'){
       await col.insertOne({ username, pass: password, name, role, status: "نشط" });
