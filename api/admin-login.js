@@ -1,3 +1,6 @@
+const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+const { username, password } = body || {};
+
 export default function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
