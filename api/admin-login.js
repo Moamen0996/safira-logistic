@@ -15,7 +15,6 @@ export default async function handler(req, res) {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
         const { username, password } = body;
 
-        // البيانات الافتراضية لتسجيل الدخول الفوري
         const ownerUser = "believer"; 
         const ownerPass = "123456";
 
@@ -24,7 +23,14 @@ export default async function handler(req, res) {
                 return res.status(200).json({
                     success: true,
                     message: 'تم تسجيل الدخول بنجاح',
-                    user: { username: ownerUser, role: 'owner', name: 'المدير العام' }
+                    user: { 
+                        username: ownerUser, 
+                        role: 'owner', 
+                        name: 'مؤمن (المالك)',
+                        permissions: ['all', 'manage_orders', 'manage_merchants', 'manage_couriers', 'manage_finances', 'settings'],
+                        isAdmin: true,
+                        isOwner: true
+                    }
                 });
             }
         }
