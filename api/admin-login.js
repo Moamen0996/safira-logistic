@@ -1,7 +1,3 @@
-import { MongoClient } from 'mongodb';
-
-const uri = process.env.MONGODB_URI || process.env.MONGO_URL;
-
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -19,12 +15,11 @@ export default async function handler(req, res) {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
         const { username, password } = body;
 
-        // الحساب الافتراضي المباشر (يمكنك تعديله هنا مباشرة إذا أردت)
+        // البيانات الافتراضية لتسجيل الدخول الفوري
         const ownerUser = "believer"; 
-        const ownerPass = "123456"; // استبدلها بكلمة المرور التي تريدها أو اتركها مطابقة لما تكتبه
+        const ownerPass = "123456";
 
         if (username && password) {
-            // التحقق المباشر من الحساب الافتراضي
             if (username.trim() === ownerUser && password.trim() === ownerPass) {
                 return res.status(200).json({
                     success: true,
@@ -32,22 +27,11 @@ export default async function handler(req, res) {
                     user: { username: ownerUser, role: 'owner', name: 'المدير العام' }
                 });
             }
-
-            // التحقق من متغيرات البيئة في Vercel إن وجدت
-            const envUser = process.env.ADMIN_USERNAME || process.env.ADMIN_USER;
-            const envPass = process.env.ADMIN_PASSWORD || process.env.ADMIN_PASS;
-            if (envUser && envPass && username.trim() === envUser.trim() && password.trim() === envPass.trim()) {
-                return res.status(200).json({
-                    success: true,
-                    message: 'تم تسجيل الدخول بنجاح',
-                    user: { username: envUser, role: 'owner', name: 'المدير العام' }
-                });
-            }
         }
 
         return res.status(401).json({ success: false, message: 'اسم المستخدم أو كلمة المرور غير صحيحة!' });
 
-    } the (error) {
+    } catch (error) {
         console.error("Login API Error:", error);
         return res.status(500).json({ success: false, message: 'خطأ داخلي في الخادم' });
     }
