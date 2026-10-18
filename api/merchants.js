@@ -29,18 +29,8 @@ export default async function handler(req, res) {
             return res.status(201).json({ success: true, id: result.insertedId });
         }
 
-        // معالجة طلب الحذف (DELETE) واستخراج الـ ID من الرابط أو الـ Query
         if (req.method === 'DELETE') {
-            // استخراج الـ ID سواء كان مرسلاً في الـ query أو من مسار الـ URL
-            let id = req.query.id;
-            
-            if (!id && req.url) {
-                const parts = req.url.split('/');
-                const lastPart = parts[parts.length - 1].split('?')[0];
-                if (lastPart && lastPart !== 'merchants') {
-                    id = lastPart;
-                }
-            }
+            const { id } = req.query;
 
             if (!id || !ObjectId.isValid(id)) {
                 return res.status(400).json({ success: false, message: 'معرف التاجر غير صالح' });
