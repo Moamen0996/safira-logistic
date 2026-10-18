@@ -1,4 +1,4 @@
-import { MongoClient } from 'mongodb';
+import { MongoClient, ObjectId } from 'mongodb';
 
 const uri = process.env.MONGODB_URI || process.env.MONGO_URL;
 
@@ -27,6 +27,23 @@ export default async function handler(req, res) {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
             const result = await collection.insertOne({ ...body, createdAt: new Date() });
             return res.status(201).json({ success: true, id: result.insertedId });
+        }
+
+        // إضافة دعم الحذف (DELETE) باستخدام الـ ID المرسل في الرابط
+        if (req.method === 'DELETE') {
+            const { id } = req.query;
+
+            if (!id || !ObjectId.isValid(id)) {
+                return res.status(400).json({ success: false, message: 'معرف التاجر غير صالح' });
+            }
+
+            const result = await collection.deleteOne({ _id: new ObjectId(id) });
+
+            if (result.deletedCount === 0) {
+                return res.status(404).json({ success: false, message: 'التاجر غير موجود' });
+            }
+
+            return res.status(200).json({ success: true, message: 'تم الحذف بنجاح' });
         }
 
         return res.status(405).json({ error: 'Method not allowed' });
