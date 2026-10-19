@@ -3,12 +3,13 @@ import { MongoClient } from 'mongodb';
 const uri = process.env.MONGODB_URI || process.env.MONGO_URL;
 
 export default async function handler(req, res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+   res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-    if (req.method === 'OPTIONS') return res.status(200).end();
-
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
     let client;
     try {
         client = new MongoClient(uri);
