@@ -54,21 +54,33 @@ export default async function handler(req, res) {
             return res.status(201).json({ success: true, message: 'تم إضافة الشحنة بنجاح', shipment: newShipment });
         }
 
-        // 3. حذف الشحنة (DELETE)
+      // 3. حذف الشحنة (DELETE) - حل نهائي يطابق الـ id بالـ # وبدونه
         if (req.method === 'DELETE') {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
-            const shipmentId = req.query.id || body.id;
+            const rawId = req.query.id || body.id;
 
-            if (!shipmentId) {
+            if (!rawId) {
                 return res.status(400).json({ success: false, message: 'رقم الشحنة مطلوب للحذف' });
             }
 
-            const result = await collection.deleteOne({ 
-                $or: [
-                    { id: shipmentId }, 
-                    { _id: ObjectId.isValid(shipmentId) ? new ObjectId(shipmentId) : null }
-                ] 
-            });
+            const cleanId = String(rawId).trim();
+            const withHash = cleanId.startsWith('#') ? cleanId : `#${cleanId}`;
+            const withoutHash = cleanId.replace('#', '');
+
+            const queryConditions = [
+                { id: cleanId },
+                { id: withHash },
+                { id: withoutHash },
+                { shipmentId: cleanId },
+                { shipmentId: withHash },
+                { shipmentId: withoutHash }
+            ];
+
+            if (ObjectId.isValid(cleanId)) {
+                queryConditions.push({ _id: new ObjectId(cleanId) });
+            }
+
+            const result = await collection.deleteOne({ $or: queryConditions });
 
             if (result.deletedCount === 0) {
                 return res.status(404).json({ success: false, message: 'الشحنة غير موجودة في القاعدة' });
@@ -76,7 +88,6 @@ export default async function handler(req, res) {
 
             return res.status(200).json({ success: true, message: 'تم حذف الشحنة بنجاح' });
         }
-
         return res.status(405).json({ error: 'Method not allowed' });
     } catch (error) {
         console.error("API Error:", error);
