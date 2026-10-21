@@ -3,7 +3,7 @@ import { MongoClient } from 'mongodb';
 const uri = process.env.MONGODB_URI || process.env.MONGO_URL;
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
@@ -15,14 +15,14 @@ export default async function handler(req, res) {
         client = new MongoClient(uri);
         await client.connect();
         const db = client.db('safira');
-        const collection = db.collection('orders');
+        const collection = db.collection('shipments'); // تم تصحيح اسم الكوليكشن لـ shipments
 
         if (req.method === 'POST' || req.method === 'PUT') {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
             const { orderId, status, location } = body;
 
             if (!orderId) {
-                return res.status(400).json({ success: false, message: 'مُعرف الأوردر مطلوب' });
+                return res.status(400).json({ success: false, message: 'مُعرف الشحنة مطلوب' });
             }
 
             const updateFields = { updatedAt: new Date() };
@@ -35,15 +35,15 @@ export default async function handler(req, res) {
             );
 
             if (result.matchedCount === 0) {
-                return res.status(404).json({ success: false, message: 'الأوردر غير موجود' });
+                return res.status(404).json({ success: false, message: 'الشحنة غير موجودة' });
             }
 
-            return res.status(200).json({ success: true, message: 'تم تحديث حالة الأوردر بنجاح' });
+            return res.status(200).json({ success: true, message: 'تم تحديث حالة الشحنة بنجاح' });
         }
 
         return res.status(405).json({ error: 'Method not allowed' });
     } catch (error) {
-        console.error("Order Status Error:", error);
+        console.error("Shipment Status Error:", error);
         return res.status(500).json({ success: false, message: 'خطأ في الخادم' });
     } finally {
         if (client) await client.close();
