@@ -22,9 +22,24 @@ export default async function handler(req, res) {
             return res.status(200).json(orders);
         }
 
-        // 2. إضافة أوردر جديد (POST)
+        // 2. إضافة أوردر واحد أو مجموعة أوردرات (POST) - لدعم استيراد الإكسيل
         if (req.method === 'POST') {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+            
+            // لو تم إرسال مصفوفة شحنات (من الإكسيل)
+            if (body.shipments && Array.isArray(body.shipments)) {
+                const shipmentsWithMeta = body.shipments.map(s => ({
+                    ...s,
+                    id: s.id || `SAF-${Math.floor(100000 + Math.random() * 900000)}`,
+                    createdAt: new Date()
+                }));
+                if (shipmentsWithMeta.length > 0) {
+                    await collection.insertMany(shipmentsWithMeta);
+                }
+                return res.status(201).json({ success: true, message: 'تم مزامنة وحفظ الشحنات بنجاح' });
+            }
+
+            // لو أوردر فردي عادي
             const newOrder = {
                 ...body,
                 id: body.id || `SAF-${Math.floor(100000 + Math.random() * 900000)}`,
@@ -34,7 +49,7 @@ export default async function handler(req, res) {
             return res.status(201).json({ success: true, message: 'تم إضافة الأوردر بنجاح', order: newOrder });
         }
 
-        // 3. حذف أوردر (DELETE) - يدعم الـ ID سواء في الـ Query أو الـ Body
+        // 3. حذف أوردر (DELETE)
         if (req.method === 'DELETE') {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
             const orderId = req.query.id || body.id;
@@ -60,7 +75,7 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Method not allowed' });
     } catch (error) {
         console.error("Orders Error:", error);
-        return res.status(500).json({ success: false, message: 'خطأ في الخادم السحابي' });
+        return res.status(500).json({ success: false, message: 'خطأ في الخادم السحابي', details: error.message });
     } finally {
         if (client) await client.close();
     }
