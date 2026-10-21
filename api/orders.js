@@ -49,10 +49,9 @@ export default async function handler(req, res) {
             return res.status(201).json({ success: true, message: 'تم إضافة الأوردر بنجاح', order: newOrder });
         }
 
-        // 3. حذف أوردر (DELETE)
         if (req.method === 'DELETE') {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
-            const orderId = req.query.id || body.id;
+            const orderId = req.query.id || body.id; // بيقرا من الـ URL أو الـ Body
 
             if (!orderId) {
                 return res.status(400).json({ success: false, message: 'رقم الأوردر مطلوب للحذف' });
