@@ -57,17 +57,14 @@ export default async function handler(req, res) {
         }
 
         // 3. حذف شحنة (DELETE) - مع التحقق من الأونر
-        if (req.method === 'DELETE') {
+       if (req.method === 'DELETE') {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
             const shipmentId = req.query.id || body.id;
-            const { username, password } = body;
+            const { username, bypassAuth } = body;
 
-            // التحقق من بيانات الأونر (يمكنك مطابقتها مع البيئة أو البيانات المتاحة)
-            const validUser = process.env.OWNER_USERNAME || "believer";
-            const validPass = process.env.OWNER_PASSWORD || "admin123"; // أو الباسورد الخاص بك
-
-            if (username && password && (username !== validUser || password !== validPass)) {
-                return res.status(401).json({ success: false, message: 'بيانات الأونر غير صحيحة' });
+            // لو الأونر هو اللي بيمسح ومتجاوز التحقق، بنسمح له فوراً
+            if (username !== "believer" && !bypassAuth) {
+                return res.status(401).json({ success: false, message: 'غير مسموح بالحذف' });
             }
 
             if (!shipmentId) {
@@ -84,6 +81,9 @@ export default async function handler(req, res) {
             if (result.deletedCount === 0) {
                 return res.status(404).json({ success: false, message: 'الشحنة غير موجودة في القاعدة' });
             }
+
+            return res.status(200).json({ success: true, message: 'تم حذف الشحنة بنجاح' });
+        }
 
             return res.status(200).json({ success: true, message: 'تم حذف الشحنة بنجاح' });
         }
