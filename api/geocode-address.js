@@ -17,7 +17,6 @@ export default async function handler(req, res) {
     }
 
     try {
-        // ضمان قراءة البيانات سواء كانت مرسلة كـ Object جاهز أو String
         let bodyData = req.body;
         if (typeof bodyData === 'string') {
             try {
@@ -30,14 +29,12 @@ export default async function handler(req, res) {
         const { address, city } = bodyData || {};
         const fullQuery = `${address || ''}, ${city || 'Egypt'}, Egypt`;
 
-        // استخدام مفتاح Geoapify الجديد
         const apiKey = process.env.GEOAPIFY_API_KEY; 
         
-        // لو المفتاح مش موجود، نرجع العنوان الأصلي كحماية بدل ما السيرفر يضرب 500
         if (!apiKey) {
             return res.status(200).json({ 
                 success: true, 
-                city: city || 'القاهرة', 
+                city: normalizeEgyptianGovernorate(city || 'القاهرة'), 
                 district: address || '', 
                 formattedAddress: `${city || ''} - ${address || ''}`,
                 location: { lat: null, lng: null } 
@@ -52,9 +49,11 @@ export default async function handler(req, res) {
         if (data.features && data.features.length > 0) {
             const result = data.features[0];
             const props = result.properties || {};
-            const coords = result.geometry?.coordinates || [null, null]; // Geoapify بيرجع [lng, lat]
+            const coords = result.geometry?.coordinates || [null, null];
 
-            const detectedCity = props.state || props.county || city || '';
+            // استخراج وتوحيد اسم المحافظة فوراً
+            const rawCity = props.state || props.county || city || '';
+            const detectedCity = normalizeEgyptianGovernorate(rawCity);
             const detectedDistrict = props.suburb || props.district || props.city || address || '';
 
             return res.status(200).json({
@@ -63,16 +62,15 @@ export default async function handler(req, res) {
                 city: detectedCity,
                 district: detectedDistrict,
                 location: { 
-                    lat: coords[1], // خط العرض
-                    lng: coords[0]  // خط الطول
+                    lat: coords[1], 
+                    lng: coords[0]  
                 }
             });
         } else {
-            // لو Geoapify مجابش نتيجة، نرجع بيانات المدخلات الطبيعية عشان الأوردر ما يعلقش
             return res.status(200).json({
                 success: true,
                 formattedAddress: `${city || ''} - ${address || ''}`,
-                city: city || 'القاهرة',
+                city: normalizeEgyptianGovernorate(city || 'القاهرة'),
                 district: address || '',
                 location: { lat: null, lng: null }
             });
@@ -81,4 +79,46 @@ export default async function handler(req, res) {
         console.error("Geocoding Error:", err);
         return res.status(500).json({ success: false, message: err.message });
     }
+}
+
+// ----------------------------------------------------
+// دالة لتوحيد أسماء المحافظات المصرية مهما كانت طريقة كتابتها
+// ----------------------------------------------------
+function normalizeEgyptianGovernorate(inputName) {
+    if (!inputName) return 'القاهرة';
+    
+    const cleanName = inputName.trim().toLowerCase()
+        .replace(/ال/g, '')
+        .replace(/cairo/g, 'القاهرة')
+        .replace(/alexandria/g, 'الاسكندرية')
+        .replace(/giza/g, 'الجيزة');
+
+    if (cleanName.includes('قاهر') || cleanName.includes('cairo')) return 'القاهرة';
+    if (cleanName.includes('اسكندر') || cleanName.includes('alex')) return 'الاسكندرية';
+    if (cleanName.includes('جيز') || cleanName.includes('giza')) return 'الجيزة';
+    if (cleanName.includes('قليوب')) return 'القليوبية';
+    if (cleanName.includes('شرقي')) return 'الشرقية';
+    if (cleanName.includes('دقهلي')) return 'الدقهلية';
+    if (cleanName.includes('منوفي') || cleanName.includes('منوفية')) return 'المنوفية';
+    if (cleanName.includes('غربي')) return 'الغربية';
+    if (cleanName.includes('بحير')) return 'البحيرة';
+    if (cleanName.includes('كفر')) return 'كفر الشيخ';
+    if (cleanName.includes('فيوم')) return 'الفيوم';
+    if (cleanName.includes('بني سويف')) return 'بني سويف';
+    if (cleanName.includes('منيا')) return 'المنيا';
+    if (cleanName.includes('أسيوط') || cleanName.includes('اسيوت')) return 'أسيوط';
+    if (cleanName.includes('سوهاج')) return 'سوهاج';
+    if (cleanName.includes('قن')) return 'قنا';
+    if (cleanName.includes('أقصر') || cleanName.includes('luxor')) return 'الأقصر';
+    if (cleanName.includes('أسوان') || cleanName.includes('aswan')) return 'أسوان';
+    if (cleanName.includes('بورسعيد')) return 'بورسعيد';
+    if (cleanName.includes('سويس') || cleanName.includes('suez')) return 'السويس';
+    if (cleanName.includes('إسماعيلية') || cleanName.includes('ismailia')) return 'الإسماعيلية';
+    if (cleanName.includes('بحر أحمر') || cleanName.includes('red sea')) return 'البحر الأحمر';
+    if (cleanName.includes('وادي جديد') || cleanName.includes('new valley')) return 'الوادي الجديد';
+    if (cleanName.includes('مطروح') || cleanName.includes('matruh')) return 'مطروح';
+    if (cleanName.includes('شمال سيناء')) return 'شمال سيناء';
+    if (cleanName.includes('جنوب سيناء')) return 'جنوب سيناء';
+
+    return inputName.trim().replace(/^ال/, '');
 }
