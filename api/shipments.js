@@ -3,15 +3,19 @@ import { MongoClient, ObjectId } from 'mongodb';
 const uri = process.env.MONGODB_URI || process.env.MONGO_URL;
 
 export default async function handler(req, res) {
-    // CORS Headers يجب أن تكون في البداية المطلقة
+    // CORS Headers الشاملة لتجنب أي حظر من المتصفح
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+    res.setHeader(
+        'Access-Control-Allow-Headers',
+        'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization'
+    );
 
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
     }
-
+    
     let client;
     try {
         if (!uri) {
