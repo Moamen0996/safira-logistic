@@ -1,5 +1,5 @@
 export default async function handler(req, res) {
-    // السماح بالطلبات (CORS Headers)
+    // إعدادات الـ CORS
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -9,8 +9,7 @@ export default async function handler(req, res) {
     );
 
     if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
+        return res.status(200).end();
     }
 
     if (req.method !== 'POST') {
@@ -18,12 +17,30 @@ export default async function handler(req, res) {
     }
 
     try {
-        const { address, city } = req.body || {};
+        // ضمان قراءة البيانات سواء كانت مرسلة كـ Object جاهز أو String
+        let bodyData = req.body;
+        if (typeof bodyData === 'string') {
+            try {
+                bodyData = JSON.parse(bodyData);
+            } catch (e) {
+                bodyData = {};
+            }
+        }
+
+        const { address, city } = bodyData || {};
         const fullQuery = `${address || ''}, ${city || 'Egypt'}`;
-        
+
         const apiKey = process.env.GOOGLE_MAPS_API_KEY; 
+        
+        // لو المفتاح مش موجود، نرجع العنوان الأصلي كحماية بدل ما السيرفر يضرب 500
         if (!apiKey) {
-            return res.status(500).json({ success: false, message: "Google Maps API Key not configured on serverless environment" });
+            return res.status(200).json({ 
+                success: true, 
+                city: city || 'القاهرة', 
+                district: address || '', 
+                formattedAddress: `${city || ''} - ${address || ''}`,
+                location: { lat: null, lng: null } 
+            });
         }
 
         const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullQuery)}&key=${apiKey}&language=ar&region=EG`;
@@ -50,13 +67,20 @@ export default async function handler(req, res) {
                 formattedAddress: result.formatted_address,
                 city: detectedCity || city,
                 district: detectedDistrict || address,
-                location: result.geometry.location // { lat, lng }
+                location: result.geometry.location
             });
         } else {
-            return res.status(200).json({ success: false, message: "لم يتم العثور على عنوان دقيق عبر الخرائط" });
+            // لو جوجل مجابش نتيجة، نرجع بيانات المدخلات الطبيعية عشان الأوردر ما يعلقش
+            return res.status(200).json({
+                success: true,
+                formattedAddress: `${city || ''} - ${address || ''}`,
+                city: city || 'القاهرة',
+                district: address || '',
+                location: { lat: null, lng: null }
+            });
         }
     } catch (err) {
-        console.error("Serverless Geocode Error:", err);
-        return res.status(500).json({ success: false, message: "خطأ داخلي في وظيفة الخرائط" });
+        console.error("Geocoding Error:", err);
+        return res.status(500).json({ success: false, message: err.message });
     }
 }
