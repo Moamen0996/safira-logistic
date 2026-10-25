@@ -54,7 +54,7 @@ export default async function handler(req, res) {
             return res.status(201).json({ success: true, message: 'تم إضافة الشحنة بنجاح', shipment: newShipment });
         }
 
-      // 3. حذف الشحنة (DELETE) - حل نهائي يطابق الـ id بالـ # وبدونه
+        // 3. حذف الشحنة (DELETE)
         if (req.method === 'DELETE') {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
             const rawId = req.query.id || body.id;
@@ -88,7 +88,51 @@ export default async function handler(req, res) {
 
             return res.status(200).json({ success: true, message: 'تم حذف الشحنة بنجاح' });
         }
+
+        // 4. تعديل الشحنة (PUT)
+        if (req.method === 'PUT') {
+            const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+            const rawId = req.query.id || body.id;
+
+            if (!rawId) {
+                return res.status(400).json({ success: false, message: 'رقم الشحنة مطلوب للتعديل' });
+            }
+
+            const cleanId = String(rawId).trim();
+            const withHash = cleanId.startsWith('#') ? cleanId : `#${cleanId}`;
+            const withoutHash = cleanId.replace('#', '');
+
+            const queryConditions = [
+                { id: cleanId },
+                { id: withHash },
+                { id: withoutHash },
+                { shipmentId: cleanId },
+                { shipmentId: withHash },
+                { shipmentId: withoutHash }
+            ];
+
+            if (ObjectId.isValid(cleanId)) {
+                queryConditions.push({ _id: new ObjectId(cleanId) });
+            }
+
+            const updateData = { ...body };
+            delete updateData._id;
+            delete updateData.id;
+
+            const result = await collection.updateOne(
+                { $or: queryConditions },
+                { $set: updateData }
+            );
+
+            if (result.matchedCount === 0) {
+                return res.status(404).json({ success: false, message: 'الشحنة غير موجودة لتعديلها' });
+            }
+
+            return res.status(200).json({ success: true, message: 'تم تعديل بيانات الشحنة بنجاح' });
+        }
+
         return res.status(405).json({ error: 'Method not allowed' });
+
     } catch (error) {
         console.error("API Error:", error);
         return res.status(500).json({ success: false, message: 'خطأ في الخادم السحابي', details: error.message });
