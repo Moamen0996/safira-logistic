@@ -122,20 +122,20 @@ export default async function handler(req, res) {
                 { shipmentId: withHash },
                 { shipmentId: withoutHash }
             ];
-
-            if (ObjectId.isValid(cleanId)) {
+if (ObjectId.isValid(cleanId)) {
                 queryConditions.push({ _id: new ObjectId(cleanId) });
             }
 
+            // فصل الـ id عن البيانات اللي هيتم تحديثها عشان المنهجية تبقى سليمة
             const updateData = { ...body };
             delete updateData._id;
-            delete updateData.id;
+            delete updateData.id; // بنمسحه من الـ $set عشان ميتكرر جوه المستند بدون داعي
 
             const result = await collection.updateOne(
                 { $or: queryConditions },
                 { $set: updateData }
             );
-
+            
             if (result.matchedCount === 0) {
                 return res.status(404).json({ success: false, message: 'الشحنة غير موجودة لتعديلها' });
             }
