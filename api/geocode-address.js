@@ -28,9 +28,10 @@ export default async function handler(req, res) {
         }
 
         const { address, city } = bodyData || {};
-        const fullQuery = `${address || ''}, ${city || 'Egypt'}`;
+        const fullQuery = `${address || ''}, ${city || 'Egypt'}, Egypt`;
 
-        const apiKey = process.env.GOOGLE_MAPS_API_KEY; 
+        // استخدام مفتاح Geoapify الجديد
+        const apiKey = process.env.GEOAPIFY_API_KEY; 
         
         // لو المفتاح مش موجود، نرجع العنوان الأصلي كحماية بدل ما السيرفر يضرب 500
         if (!apiKey) {
@@ -43,34 +44,31 @@ export default async function handler(req, res) {
             });
         }
 
-        const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullQuery)}&key=${apiKey}&language=ar&region=EG`;
+        const url = `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(fullQuery)}&lang=ar&filter=countrycode:eg&apiKey=${apiKey}`;
         
         const response = await fetch(url);
         const data = await response.json();
 
-        if (data.status === 'OK' && data.results.length > 0) {
-            const result = data.results[0];
-            let detectedCity = '';
-            let detectedDistrict = '';
+        if (data.features && data.features.length > 0) {
+            const result = data.features[0];
+            const props = result.properties || {};
+            const coords = result.geometry?.coordinates || [null, null]; // Geoapify بيرجع [lng, lat]
 
-            result.address_components.forEach(component => {
-                if (component.types.includes('administrative_area_level_1')) {
-                    detectedCity = component.long_name.replace('محافظة', '').trim();
-                }
-                if (component.types.includes('sublocality_level_1') || component.types.includes('locality')) {
-                    detectedDistrict = component.long_name;
-                }
-            });
+            const detectedCity = props.state || props.county || city || '';
+            const detectedDistrict = props.suburb || props.district || props.city || address || '';
 
             return res.status(200).json({
                 success: true,
-                formattedAddress: result.formatted_address,
-                city: detectedCity || city,
-                district: detectedDistrict || address,
-                location: result.geometry.location
+                formattedAddress: props.formatted || `${city || ''} - ${address || ''}`,
+                city: detectedCity,
+                district: detectedDistrict,
+                location: { 
+                    lat: coords[1], // خط العرض
+                    lng: coords[0]  // خط الطول
+                }
             });
         } else {
-            // لو جوجل مجابش نتيجة، نرجع بيانات المدخلات الطبيعية عشان الأوردر ما يعلقش
+            // لو Geoapify مجابش نتيجة، نرجع بيانات المدخلات الطبيعية عشان الأوردر ما يعلقش
             return res.status(200).json({
                 success: true,
                 formattedAddress: `${city || ''} - ${address || ''}`,
