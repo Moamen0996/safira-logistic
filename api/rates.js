@@ -16,17 +16,32 @@ export default async function handler(req, res) {
         client = new MongoClient(uri);
         await client.connect();
         const db = client.db('safira');
-        const collection = db.collection('rates'); // كولكشن خاص بالأسعار
+        const collection = db.collection('rates');
 
+        // GET: جلب مصفوفة الأسعار والمناديب والمناطق السحابية
         if (req.method === 'GET') {
-            const rates = await collection.find({}).toArray();
-            return res.status(200).json(rates);
+            const data = await collection.findOne({ type: 'shipping_rates_config' });
+            return res.status(200).json(data || { rates: [], courierRates: [] });
         }
 
+        // POST: حفظ أو تحديث الأسعار والمناطق وعمولات المناديب سحابياً
         if (req.method === 'POST') {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
-            const result = await collection.insertOne({ ...body, createdAt: new Date() });
-            return res.status(201).json({ success: true, id: result.insertedId });
+            
+            // استخدام updateOne مع upsert لتحديث المستند الموحد أو إنشائه لو مش موجود
+            await collection.updateOne(
+                { type: 'shipping_rates_config' },
+                { 
+                    $set: { 
+                        rates: body.rates || [], 
+                        courierRates: body.courierRates || [],
+                        updatedAt: new Date()
+                    } 
+                },
+                { upsert: true }
+            );
+
+            return res.status(200).json({ success: true, message: "تم الحفظ سحابياً بنجاح" });
         }
 
         return res.status(405).json({ error: 'Method not allowed' });
