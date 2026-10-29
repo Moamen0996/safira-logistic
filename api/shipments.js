@@ -101,10 +101,10 @@ export default async function handler(req, res) {
             return res.status(200).json({ success: true, message: 'تم حذف الشحنة بنجاح' });
         }
 
-        // 4. تعديل الشحنة (PUT)
+      // 4. تعديل الشحنة (PUT)
         if (req.method === 'PUT') {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
-            const rawId = req.query.id || body.id;
+            const rawId = req.query.id || body.id || body._id;
 
             if (!rawId) {
                 return res.status(400).json({ success: false, message: 'رقم الشحنة مطلوب للتعديل' });
@@ -122,14 +122,20 @@ export default async function handler(req, res) {
                 { shipmentId: withHash },
                 { shipmentId: withoutHash }
             ];
-if (ObjectId.isValid(cleanId)) {
+            if (ObjectId.isValid(cleanId)) {
                 queryConditions.push({ _id: new ObjectId(cleanId) });
             }
 
-            // فصل الـ id عن البيانات اللي هيتم تحديثها عشان المنهجية تبقى سليمة
+            // 🚀 ضمان توحيد وحفظ الحالة واسم المندوب في قاعدة البيانات بدقة
             const updateData = { ...body };
+            
+            // لو تم إسناد مندوب بأي شكل، نثبت الحالة رسمياً في القاعدة لتختفي من المخزن
+            if (updateData.courierAssigned || updateData.courier || updateData.deliveryAgent) {
+                updateData.status = 'مع المندوب';
+            }
+
             delete updateData._id;
-            delete updateData.id; // بنمسحه من الـ $set عشان ميتكرر جوه المستند بدون داعي
+            delete updateData.id;
 
             const result = await collection.updateOne(
                 { $or: queryConditions },
