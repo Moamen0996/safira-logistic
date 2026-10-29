@@ -27,18 +27,9 @@ export default async function handler(req, res) {
         const collection = db.collection('shipments');
         const safiraDataCol = db.collection('safiradatas');
 
-        // 1. جلب الشحنات (GET) - 🚀 استبعاد الشحنات المسندة أو التي مع المندوب من المخزن نهائياً
+      // 1. جلب الشحنات (GET)
         if (req.method === 'GET') {
-            const shipments = await collection.find({
-                $and: [
-                    { status: { $ne: 'مع المندوب' } },
-                    { status: { $ne: 'with-courier' } },
-                    { courierAssigned: { $exists: false } },
-                    { courier: { $exists: false } }
-                ]
-            }).sort({ createdAt: -1 }).toArray();
-
-            // دعم جلب الشحنات غير المسندة فقط في جدول المخزن
+            const shipments = await collection.find({}).sort({ createdAt: -1 }).toArray();
             return res.status(200).json(shipments);
         }
 
