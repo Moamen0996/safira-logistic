@@ -3,8 +3,6 @@ import { MongoClient, ObjectId } from 'mongodb';
 const uri = process.env.MONGODB_URI || process.env.MONGO_URL;
 
 export default async function handler(req, res) {
-    // CORS Headers الشاملة لتجنب أي حظر من المتصفح
-   // CORS Headers الشاملة لتجنب أي حظر من المتصفح
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -14,13 +12,6 @@ export default async function handler(req, res) {
     );
 
     if (req.method === 'OPTIONS') {
-        res.setHeader('Access-Control-Allow-Credentials', 'true');
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-        res.setHeader(
-            'Access-Control-Allow-Headers',
-            'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization'
-        );
         return res.status(200).end();
     }
     
@@ -34,10 +25,20 @@ export default async function handler(req, res) {
         await client.connect();
         const db = client.db('safira');
         const collection = db.collection('shipments');
+        const safiraDataCol = db.collection('safiradatas');
 
-        // 1. جلب الشحنات (GET)
+        // 1. جلب الشحنات (GET) - 🚀 استبعاد الشحنات المسندة أو التي مع المندوب من المخزن نهائياً
         if (req.method === 'GET') {
-            const shipments = await collection.find({}).sort({ createdAt: -1 }).toArray();
+            const shipments = await collection.find({
+                $and: [
+                    { status: { $ne: 'مع المندوب' } },
+                    { status: { $ne: 'with-courier' } },
+                    { courierAssigned: { $exists: false } },
+                    { courier: { $exists: false } }
+                ]
+            }).sort({ createdAt: -1 }).toArray();
+
+            // دعم جلب الشحنات غير المسندة فقط في جدول المخزن
             return res.status(200).json(shipments);
         }
 
@@ -80,12 +81,8 @@ export default async function handler(req, res) {
             const withoutHash = cleanId.replace('#', '');
 
             const queryConditions = [
-                { id: cleanId },
-                { id: withHash },
-                { id: withoutHash },
-                { shipmentId: cleanId },
-                { shipmentId: withHash },
-                { shipmentId: withoutHash }
+                { id: cleanId }, { id: withHash }, { id: withoutHash },
+                { shipmentId: cleanId }, { shipmentId: withHash }, { shipmentId: withoutHash }
             ];
 
             if (ObjectId.isValid(cleanId)) {
@@ -101,7 +98,7 @@ export default async function handler(req, res) {
             return res.status(200).json({ success: true, message: 'تم حذف الشحنة بنجاح' });
         }
 
-      // 4. تعديل الشحنة (PUT)
+        // 4. تعديل الشحنة (PUT) - 🚀 التحديث القاطع وحفظ الحالة واسم المندوب
         if (req.method === 'PUT') {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
             const rawId = req.query.id || body.id || body._id;
@@ -115,21 +112,16 @@ export default async function handler(req, res) {
             const withoutHash = cleanId.replace('#', '');
 
             const queryConditions = [
-                { id: cleanId },
-                { id: withHash },
-                { id: withoutHash },
-                { shipmentId: cleanId },
-                { shipmentId: withHash },
-                { shipmentId: withoutHash }
+                { id: cleanId }, { id: withHash }, { id: withoutHash },
+                { shipmentId: cleanId }, { shipmentId: withHash }, { shipmentId: withoutHash }
             ];
             if (ObjectId.isValid(cleanId)) {
                 queryConditions.push({ _id: new ObjectId(cleanId) });
             }
 
-            // 🚀 ضمان توحيد وحفظ الحالة واسم المندوب في قاعدة البيانات بدقة
             const updateData = { ...body };
             
-            // لو تم إسناد مندوب بأي شكل، نثبت الحالة رسمياً في القاعدة لتختفي من المخزن
+            // لو تم إسناد مندوب، نجعل حالتها 'مع المندوب' بقوة لكي تختفي من المخزن
             if (updateData.courierAssigned || updateData.courier || updateData.deliveryAgent) {
                 updateData.status = 'مع المندوب';
             }
@@ -144,6 +136,26 @@ export default async function handler(req, res) {
             
             if (result.matchedCount === 0) {
                 return res.status(404).json({ success: false, message: 'الشحنة غير موجودة لتعديلها' });
+            }
+
+            // 🚀 مزامنة وتحديث الـ safiradatas لتكون متوافقة تماماً
+            try {
+                const activeShipments = await collection.find({
+                    $and: [
+                        { status: { $ne: 'مع المندوب' } },
+                        { status: { $ne: 'with-courier' } },
+                        { courierAssigned: { $exists: false } },
+                        { courier: { $exists: false } }
+                    ]
+                }).toArray();
+
+                await safiraDataCol.updateOne(
+                    { singletonKey: "main_db" },
+                    { $set: { "data.shipments": activeShipments, updatedAt: new Date() } },
+                    { upsert: true }
+                );
+            } catch (syncErr) {
+                console.error("Safiradata sync error:", syncErr);
             }
 
             return res.status(200).json({ success: true, message: 'تم تعديل بيانات الشحنة بنجاح' });
