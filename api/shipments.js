@@ -88,8 +88,7 @@ export default async function handler(req, res) {
 
             return res.status(200).json({ success: true, message: 'تم حذف الشحنة بنجاح' });
         }
-
-        // 4. تعديل الشحنة (PUT) - 🚀 التحديث القاطع وحفظ الحالة واسم المندوب
+// 4. تعديل الشحنة (PUT)
         if (req.method === 'PUT') {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
             const rawId = req.query.id || body.id || body._id;
@@ -111,8 +110,6 @@ export default async function handler(req, res) {
             }
 
             const updateData = { ...body };
-            
-            // لو تم إسناد مندوب، نجعل حالتها 'مع المندوب' بقوة لكي تختفي من المخزن
             if (updateData.courierAssigned || updateData.courier || updateData.deliveryAgent) {
                 updateData.status = 'مع المندوب';
             }
@@ -120,6 +117,7 @@ export default async function handler(req, res) {
             delete updateData._id;
             delete updateData.id;
 
+            // 1. تحديث جدول الشحنات الرئيسي
             const result = await collection.updateOne(
                 { $or: queryConditions },
                 { $set: updateData }
@@ -129,29 +127,21 @@ export default async function handler(req, res) {
                 return res.status(404).json({ success: false, message: 'الشحنة غير موجودة لتعديلها' });
             }
 
-            // 🚀 مزامنة وتحديث الـ safiradatas لتكون متوافقة تماماً
+            // 🚀 2. الخطوة الحرجة: تحديث المستند المركزي في safiradatas لكي لا تعود البيانات القديمة أبداً
             try {
-                const activeShipments = await collection.find({
-                    $and: [
-                        { status: { $ne: 'مع المندوب' } },
-                        { status: { $ne: 'with-courier' } },
-                        { courierAssigned: { $exists: false } },
-                        { courier: { $exists: false } }
-                    ]
-                }).toArray();
-
+                const allShipments = await collection.find({}).toArray();
                 await safiraDataCol.updateOne(
                     { singletonKey: "main_db" },
-                    { $set: { "data.shipments": activeShipments, updatedAt: new Date() } },
+                    { $set: { "data.shipments": allShipments, updatedAt: new Date() } },
                     { upsert: true }
                 );
             } catch (syncErr) {
-                console.error("Safiradata sync error:", syncErr);
+                console.error("Sync error:", syncErr);
             }
 
-            return res.status(200).json({ success: true, message: 'تم تعديل بيانات الشحنة بنجاح' });
+            return res.status(200).json({ success: true, message: 'تم تعديل الحفظ السحابي بنجاح' });
         }
-
+        
         return res.status(405).json({ error: 'Method not allowed' });
 
     } catch (error) {
