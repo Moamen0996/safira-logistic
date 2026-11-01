@@ -88,59 +88,102 @@ export default async function handler(req, res) {
 
             return res.status(200).json({ success: true, message: 'تم حذف الشحنة بنجاح' });
         }
-// 4. تعديل الشحنة (PUT)
-        if (req.method === 'PUT') {
-            const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
-            const rawId = req.query.id || body.id || body._id;
+// 4. تعديل الشحنة (PUT) - نسخة متوافقة
+if (req.method === 'PUT') {
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+    const rawId = req.query.id || body.id || body._id || body.code;
 
-            if (!rawId) {
-                return res.status(400).json({ success: false, message: 'رقم الشحنة مطلوب للتعديل' });
-            }
+    if (!rawId) {
+        return res.status(400).json({ success: false, message: 'رقم الشحنة مطلوب للتعديل' });
+    }
 
-            const cleanId = String(rawId).trim();
-            const withHash = cleanId.startsWith('#') ? cleanId : `#${cleanId}`;
-            const withoutHash = cleanId.replace('#', '');
+    const cleanId = String(rawId).trim();
+    const withHash = cleanId.startsWith('#') ? cleanId : `#${cleanId}`;
+    const withoutHash = cleanId.replace('#', '');
 
-            const queryConditions = [
-                { id: cleanId }, { id: withHash }, { id: withoutHash },
-                { shipmentId: cleanId }, { shipmentId: withHash }, { shipmentId: withoutHash }
-            ];
-            if (ObjectId.isValid(cleanId)) {
-                queryConditions.push({ _id: new ObjectId(cleanId) });
-            }
+    const queryConditions = [
+        { id: cleanId }, { id: withHash }, { id: withoutHash },
+        { code: cleanId }, { code: withHash }, { code: withoutHash },
+        { shipmentId: cleanId }, { shipmentId: withHash }, { shipmentId: withoutHash },
+        { waybill: cleanId }
+    ];
+    if (ObjectId.isValid(cleanId)) {
+        queryConditions.push({ _id: new ObjectId(cleanId) });
+    }
 
-            const updateData = { ...body };
-            if (updateData.courierAssigned || updateData.courier || updateData.deliveryAgent) {
-                updateData.status = 'مع المندوب';
-            }
+    // 1. هات القديمة الاول عشان منضيعش حاجة
+    const old = await collection.findOne({ $or: queryConditions });
+    if (!old) {
+        return res.status(404).json({ success: false, message: 'الشحنة غير موجودة لتعديلها' });
+    }
 
-            delete updateData._id;
-            delete updateData.id;
-
-            // 1. تحديث جدول الشحنات الرئيسي
-            const result = await collection.updateOne(
-                { $or: queryConditions },
-                { $set: updateData }
-            );
-            
-            if (result.matchedCount === 0) {
-                return res.status(404).json({ success: false, message: 'الشحنة غير موجودة لتعديلها' });
-            }
-
-            // 🚀 2. الخطوة الحرجة: تحديث المستند المركزي في safiradatas لكي لا تعود البيانات القديمة أبداً
-            try {
-                const allShipments = await collection.find({}).toArray();
-                await safiraDataCol.updateOne(
-                    { singletonKey: "main_db" },
-                    { $set: { "data.shipments": allShipments, updatedAt: new Date() } },
-                    { upsert: true }
-                );
-            } catch (syncErr) {
-                console.error("Sync error:", syncErr);
-            }
-
-            return res.status(200).json({ success: true, message: 'تم تعديل الحفظ السحابي بنجاح' });
+    // 2. توحيد السعر - خد اول رقم مش صفر، مش اول رقم وخلاص
+    const pickPrice = (...vals) => {
+        for (const v of vals) {
+            const n = Number(v);
+            if (!isNaN(n) && n > 0) return n;
         }
+        return null;
+    };
+    const newPrice = pickPrice(body.amount, body.cod, body.price, body.total, body.cost) ?? Number(old.cod || old.amount || 0);
+    const newShip = pickPrice(body.shippingFee, body.mShip, body.totalShipping) ?? Number(old.shippingFee || old.mShip || 0);
+    // لو بعت mShip و cShip منفصلين، اجمعهم
+    const hasSplitShip = body.mShip !== undefined || body.cShip !== undefined;
+    const finalShip = hasSplitShip ? (Number(body.mShip || 0) + Number(body.cShip || 0)) : newShip;
+    const newName = body.customer || body.customerName || body.recipientName || old.customer || old.customerName || old.recipientName;
+
+    const updateData = { ...body };
+
+    // 3. وحد كل الاسماء المكررة
+    updateData.amount = newPrice;
+    updateData.cod = newPrice;
+    updateData.price = newPrice;
+
+    updateData.shippingFee = finalShip;
+    updateData.mShip = hasSplitShip ? Number(body.mShip || 0) : finalShip;
+    updateData.cShip = hasSplitShip ? Number(body.cShip || 0) : 0;
+
+    updateData.customer = newName;
+    updateData.customerName = newName;
+    updateData.recipientName = newName;
+
+    if (body.notes !== undefined) updateData.notes = body.notes;
+    if (body.note !== undefined) updateData.notes = body.note;
+    // لو مفيش notes خالص، سيب القديمة
+    if (updateData.notes === undefined) updateData.notes = old.notes || '';
+
+    if (updateData.courierAssigned || updateData.courier || updateData.deliveryAgent) {
+        updateData.status = 'مع المندوب';
+    }
+
+    delete updateData._id;
+    delete updateData.id;
+    delete updateData.code; // متغيرش الكود
+    delete updateData.shipmentId;
+
+    const result = await collection.updateOne(
+        { $or: queryConditions },
+        { $set: updateData }
+    );
+
+    if (result.matchedCount === 0) {
+        return res.status(404).json({ success: false, message: 'الشحنة غير موجودة لتعديلها' });
+    }
+
+    // 4. تحديث المستند المركزي
+    try {
+        const allShipments = await collection.find({}).toArray();
+        await safiraDataCol.updateOne(
+            { singletonKey: "main_db" },
+            { $set: { "data.shipments": allShipments, updatedAt: new Date() } },
+            { upsert: true }
+        );
+    } catch (syncErr) {
+        console.error("Sync error:", syncErr);
+    }
+
+    return res.status(200).json({ success: true, message: 'تم تعديل الحفظ السحابي بنجاح' });
+}
         
         return res.status(405).json({ error: 'Method not allowed' });
 
