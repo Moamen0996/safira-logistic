@@ -27,9 +27,44 @@ export default async function handler(req, res) {
         const collection = db.collection('shipments');
         const safiraDataCol = db.collection('safiradatas');
 
-      // 1. جلب الشحنات (GET)
+        // helper - نفس منطق الـ id بتاعك بالظبط عشان # والـ ObjectId
+        const buildQuery = (rawId) => {
+            const cleanId = String(rawId).trim();
+            const withHash = cleanId.startsWith('#') ? cleanId : `#${cleanId}`;
+            const withoutHash = cleanId.replace('#', '');
+            const q = [
+                { id: cleanId }, { id: withHash }, { id: withoutHash },
+                { code: cleanId }, { code: withHash }, { code: withoutHash },
+                { shipmentId: cleanId }, { shipmentId: withHash }, { shipmentId: withoutHash },
+                { waybill: cleanId }, { waybill: withHash }, { waybill: withoutHash },
+            ];
+            if (ObjectId.isValid(cleanId)) q.push({ _id: new ObjectId(cleanId) });
+            return q;
+        };
+
+        const syncCentral = async () => {
+            try {
+                const allShipments = await collection.find({}).toArray();
+                await safiraDataCol.updateOne(
+                    { singletonKey: "main_db" },
+                    { $set: { "data.shipments": allShipments, updatedAt: new Date() } },
+                    { upsert: true }
+                );
+            } catch (e) { console.error("Sync error:", e); }
+        };
+
+      // 1. جلب الشحنات (GET) - مع فلتر المحذوف
         if (req.method === 'GET') {
-            const shipments = await collection.find({}).sort({ createdAt: -1 }).toArray();
+            // شحنة واحدة بالـ id - هاتها حتى لو محذوفة عشان المودال يفتحها
+            if (req.query.id) {
+                const one = await collection.findOne({ $or: buildQuery(req.query.id) });
+                if (!one) return res.status(404).json({ success: false, message: 'الشحنة غير موجودة' });
+                return res.status(200).json(one);
+            }
+            // الليست كلها
+            const includeDeleted = req.query.includeDeleted === 'true';
+            const filter = includeDeleted ? {} : { isDeleted: { $ne: true } };
+            const shipments = await collection.find(filter).sort({ createdAt: -1 }).toArray();
             return res.status(200).json(shipments);
         }
 
@@ -41,54 +76,93 @@ export default async function handler(req, res) {
                 const shipmentsWithMeta = body.shipments.map(s => ({
                     ...s,
                     id: s.id || `SAF-${Math.floor(100000 + Math.random() * 900000)}`,
-                    createdAt: new Date()
+                    isDeleted: false,
+                    history: s.history || [],
+                    createdAt: s.createdAt || new Date()
                 }));
                 if (shipmentsWithMeta.length > 0) {
                     await collection.insertMany(shipmentsWithMeta);
                 }
+                await syncCentral();
                 return res.status(201).json({ success: true, message: 'تم استيراد وحفظ الشحنات بنجاح' });
             }
 
             const newShipment = {
                 ...body,
                 id: body.id || `SAF-${Math.floor(100000 + Math.random() * 900000)}`,
+                isDeleted: false,
+                history: body.history || [],
                 createdAt: new Date()
             };
             await collection.insertOne(newShipment);
+            await syncCentral();
             return res.status(201).json({ success: true, message: 'تم إضافة الشحنة بنجاح', shipment: newShipment });
         }
 
-        // 3. حذف الشحنة (DELETE)
-        if (req.method === 'DELETE') {
+        // 3. حذف ناعم + استرجاع (PATCH) - بديل DELETE
+        if (req.method === 'PATCH') {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
-            const rawId = req.query.id || body.id;
+            const rawId = req.query.id || body.id || body._id || body.waybill || body.code;
+            if (!rawId) return res.status(400).json({ success: false, message: 'رقم الشحنة مطلوب' });
 
-            if (!rawId) {
-                return res.status(400).json({ success: false, message: 'رقم الشحنة مطلوب للحذف' });
+            const old = await collection.findOne({ $or: buildQuery(rawId) });
+            if (!old) return res.status(404).json({ success: false, message: 'الشحنة غير موجودة في القاعدة' });
+
+            let update = { updatedAt: new Date() };
+            let historyEntry = null;
+
+            // حذف ناعم
+            if (body.isDeleted === true) {
+                if (old.isDeleted) return res.status(200).json({ success: true, message: 'محذوفة اصلا' });
+                update.isDeleted = true;
+                update.deletedAt = body.deletedAt ? new Date(body.deletedAt) : new Date();
+                update.deletedBy = body.deletedBy || 'الإدارة';
+                update.deleteReason = body.deleteReason || '';
+                historyEntry = {
+                    date: new Date().toISOString(),
+                    action: 'حذف الشحنة',
+                    from: old.status,
+                    to: 'محذوفة',
+                    by: update.deletedBy,
+                    note: update.deleteReason
+                };
+            }
+            // استرجاع
+            else if (body.isDeleted === false || body.restore === true) {
+                update.isDeleted = false;
+                update.deletedAt = null;
+                update.deletedBy = null;
+                update.deleteReason = '';
+                historyEntry = {
+                    date: new Date().toISOString(),
+                    action: 'استرجاع الشحنة',
+                    from: 'محذوفة',
+                    to: old.status,
+                    by: body.deletedBy || body.restoredBy || 'الإدارة',
+                    note: 'رجعت من الأرشيف'
+                };
+            }
+            // اي تعديل تاني جاي PATCH عادي - سيبه يعدل من غير ما يمسح الـ history
+            else {
+                Object.assign(update, body);
+                delete update._id; delete update.id; delete update.code;
             }
 
-            const cleanId = String(rawId).trim();
-            const withHash = cleanId.startsWith('#') ? cleanId : `#${cleanId}`;
-            const withoutHash = cleanId.replace('#', '');
+            const newHistory = [...(old.history || [])];
+            if (historyEntry) newHistory.push(historyEntry);
+            update.history = newHistory;
 
-            const queryConditions = [
-                { id: cleanId }, { id: withHash }, { id: withoutHash },
-                { shipmentId: cleanId }, { shipmentId: withHash }, { shipmentId: withoutHash }
-            ];
-
-            if (ObjectId.isValid(cleanId)) {
-                queryConditions.push({ _id: new ObjectId(cleanId) });
-            }
-
-            const result = await collection.deleteOne({ $or: queryConditions });
-
-            if (result.deletedCount === 0) {
-                return res.status(404).json({ success: false, message: 'الشحنة غير موجودة في القاعدة' });
-            }
-
-            return res.status(200).json({ success: true, message: 'تم حذف الشحنة بنجاح' });
+            await collection.updateOne({ $or: buildQuery(rawId) }, { $set: update });
+            await syncCentral();
+            return res.status(200).json({ success: true, message: body.isDeleted === true ? 'تم حذف الشحنة (حذف ناعم - موجودة في الـ History)' : 'تم' });
         }
-// 4. تعديل الشحنة (PUT) - نسخة متوافقة
+
+        // 3-مكرر. DELETE اتلغى نهائي - عشان مفيش حد يمسح نهائي بالغلط
+        if (req.method === 'DELETE') {
+            return res.status(400).json({ success: false, message: 'الحذف النهائي اتلغى - استخدم PATCH isDeleted:true' });
+        }
+
+// 4. تعديل الشحنة (PUT) - نسخة متوافقة + حماية الـ history والمحذوف
 if (req.method === 'PUT') {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
     const rawId = req.query.id || body.id || body._id || body.code;
@@ -97,27 +171,13 @@ if (req.method === 'PUT') {
         return res.status(400).json({ success: false, message: 'رقم الشحنة مطلوب للتعديل' });
     }
 
-    const cleanId = String(rawId).trim();
-    const withHash = cleanId.startsWith('#') ? cleanId : `#${cleanId}`;
-    const withoutHash = cleanId.replace('#', '');
+    const queryConditions = buildQuery(rawId);
 
-    const queryConditions = [
-        { id: cleanId }, { id: withHash }, { id: withoutHash },
-        { code: cleanId }, { code: withHash }, { code: withoutHash },
-        { shipmentId: cleanId }, { shipmentId: withHash }, { shipmentId: withoutHash },
-        { waybill: cleanId }
-    ];
-    if (ObjectId.isValid(cleanId)) {
-        queryConditions.push({ _id: new ObjectId(cleanId) });
-    }
-
-    // 1. هات القديمة الاول عشان منضيعش حاجة
     const old = await collection.findOne({ $or: queryConditions });
     if (!old) {
         return res.status(404).json({ success: false, message: 'الشحنة غير موجودة لتعديلها' });
     }
 
-    // 2. توحيد السعر - خد اول رقم مش صفر، مش اول رقم وخلاص
     const pickPrice = (...vals) => {
         for (const v of vals) {
             const n = Number(v);
@@ -127,14 +187,12 @@ if (req.method === 'PUT') {
     };
     const newPrice = pickPrice(body.amount, body.cod, body.price, body.total, body.cost) ?? Number(old.cod || old.amount || 0);
     const newShip = pickPrice(body.shippingFee, body.mShip, body.totalShipping) ?? Number(old.shippingFee || old.mShip || 0);
-    // لو بعت mShip و cShip منفصلين، اجمعهم
     const hasSplitShip = body.mShip !== undefined || body.cShip !== undefined;
     const finalShip = hasSplitShip ? (Number(body.mShip || 0) + Number(body.cShip || 0)) : newShip;
     const newName = body.customer || body.customerName || body.recipientName || old.customer || old.customerName || old.recipientName;
 
     const updateData = { ...body };
 
-    // 3. وحد كل الاسماء المكررة
     updateData.amount = newPrice;
     updateData.cod = newPrice;
     updateData.price = newPrice;
@@ -149,7 +207,6 @@ if (req.method === 'PUT') {
 
     if (body.notes !== undefined) updateData.notes = body.notes;
     if (body.note !== undefined) updateData.notes = body.note;
-    // لو مفيش notes خالص، سيب القديمة
     if (updateData.notes === undefined) updateData.notes = old.notes || '';
 
     if (updateData.courierAssigned || updateData.courier || updateData.deliveryAgent) {
@@ -158,8 +215,14 @@ if (req.method === 'PUT') {
 
     delete updateData._id;
     delete updateData.id;
-    delete updateData.code; // متغيرش الكود
+    delete updateData.code;
     delete updateData.shipmentId;
+    // مهم: PUT ميمسحش الـ history ولا حالة الحذف
+    delete updateData.history;
+    delete updateData.isDeleted;
+    delete updateData.deletedAt;
+    delete updateData.deletedBy;
+    delete updateData.deleteReason;
 
     const result = await collection.updateOne(
         { $or: queryConditions },
@@ -170,18 +233,7 @@ if (req.method === 'PUT') {
         return res.status(404).json({ success: false, message: 'الشحنة غير موجودة لتعديلها' });
     }
 
-    // 4. تحديث المستند المركزي
-    try {
-        const allShipments = await collection.find({}).toArray();
-        await safiraDataCol.updateOne(
-            { singletonKey: "main_db" },
-            { $set: { "data.shipments": allShipments, updatedAt: new Date() } },
-            { upsert: true }
-        );
-    } catch (syncErr) {
-        console.error("Sync error:", syncErr);
-    }
-
+    await syncCentral();
     return res.status(200).json({ success: true, message: 'تم تعديل الحفظ السحابي بنجاح' });
 }
         
