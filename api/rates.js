@@ -18,29 +18,39 @@ export default async function handler(req, res) {
         const db = client.db('safira');
         const collection = db.collection('rates');
 
-        // GET: جلب مصفوفة الأسعار والمناديب والمناطق السحابية
+        // GET: جلب البيانات وتوحيد الهيكلة لمنع أي نقص
         if (req.method === 'GET') {
             const data = await collection.findOne({ type: 'shipping_rates_config' });
-            return res.status(200).json(data || { rates: [], courierRates: [] });
+            
+            if (!data) {
+                return res.status(200).json({ rates: [], courierRates: [] });
+            }
+
+            // ضمان إرجاع المصفوفات بالأسماء الصحيحة التي يتوقعها Frontend
+            return res.status(200).json({
+                rates: data.rates || data.merchantRates || [],
+                courierRates: data.courierRates || []
+            });
         }
 
-       if (req.method === 'POST') {
-    const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
-    
-    await collection.updateOne(
-        { type: 'shipping_rates_config' },
-        { 
-            $set: { 
-                rates: body.rates || [], 
-                courierRates: body.courierRates || [],
-                updatedAt: new Date()
-            } 
-        },
-        { upsert: true }
-    );
+        // POST: الحفظ السحابي
+        if (req.method === 'POST') {
+            const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+            
+            await collection.updateOne(
+                { type: 'shipping_rates_config' },
+                { 
+                    $set: { 
+                        rates: body.rates || [], 
+                        courierRates: body.courierRates || [],
+                        updatedAt: new Date()
+                    } 
+                },
+                { upsert: true }
+            );
 
-    return res.status(200).json({ success: true, message: "تم الحفظ سحابياً بنجاح" });
-}
+            return res.status(200).json({ success: true, message: "تم الحفظ سحابياً بنجاح" });
+        }
 
         return res.status(405).json({ error: 'Method not allowed' });
     } catch (err) {
