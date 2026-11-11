@@ -18,25 +18,23 @@ export default async function handler(req, res) {
         const db = client.db('safira');
         const collection = db.collection('rates');
 
-        // GET: جلب البيانات وتوحيد الهيكلة لمنع أي نقص
         if (req.method === 'GET') {
             const data = await collection.findOne({ type: 'shipping_rates_config' });
-            
-            if (!data) {
-                return res.status(200).json({ rates: [], courierRates: [] });
-            }
-
-            // ضمان إرجاع المصفوفات بالأسماء الصحيحة التي يتوقعها Frontend
-            return res.status(200).json({
-                rates: data.rates || data.merchantRates || [],
-                courierRates: data.courierRates || []
-            });
+            return res.status(200).json(data || { rates: [], courierRates: [] });
         }
 
-        // POST: الحفظ السحابي
         if (req.method === 'POST') {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
             
+            // 🛑 حماية إضافية في السيرفر: فحص آخر وقت تحديث لمنع الطلبات المكررة الفورية (أقل من ثانية)
+            const currentConfig = await collection.findOne({ type: 'shipping_rates_config' });
+            if (currentConfig && currentConfig.updatedAt) {
+                const timeDiff = Date.now() - new Date(currentConfig.updatedAt).getTime();
+                if (timeDiff < 600) { // لو الطلب اتكرر خلال أقل من 0.6 ثانية، اعتبره تكرار واقبله صامتاً بدون إعادة الكتابة الزائدة
+                    return res.status(200).json({ success: true, message: "تم تجاهل الطلب المكرر السريع" });
+                }
+            }
+
             await collection.updateOne(
                 { type: 'shipping_rates_config' },
                 { 
