@@ -2,21 +2,7 @@ import { MongoClient } from 'mongodb';
 
 const uri = process.env.MONGODB_URI || process.env.MONGO_URL;
 
-// تخزين مؤقت للاتصال لتسريع الاستجابة على Vercel
-let cachedClient = null;
-
-async function connectToDatabase() {
-    if (cachedClient) {
-        return cachedClient;
-    }
-    const client = new MongoClient(uri);
-    await client.connect();
-    cachedClient = client;
-    return client;
-}
-
 export default async function handler(req, res) {
-    // إعدادات الـ CORS الكاملة
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -25,41 +11,34 @@ export default async function handler(req, res) {
         return res.status(200).end();
     }
 
+    let client;
     try {
-        const client = await connectToDatabase();
+        client = new MongoClient(uri);
+        await client.connect();
         const db = client.db('safira');
         const collection = db.collection('rates');
 
-        // 1. معالجة طلبات الـ GET (جلب البيانات)
         if (req.method === 'GET') {
             const data = await collection.findOne({ type: 'shipping_rates_config' });
             return res.status(200).json(data || { rates: [], courierRates: [] });
         }
 
-        // 2. معالجة طلبات الـ POST (الحفظ السحابي)
         if (req.method === 'POST') {
             let body = req.body;
-            
-            // التأكد من تحويل الـ body بشكل صحيح إذا كان نصاً
             if (typeof body === 'string') {
-                try {
-                    body = JSON.parse(body);
-                } catch (e) {
-                    body = {};
-                }
+                try { body = JSON.parse(body); } catch (e) { body = {}; }
             }
             body = body || {};
 
-            // 🛑 حماية إضافية: فحص آخر وقت تحديث لمنع الطلبات المكررة الفورية (أقل من 0.6 ثانية)
+            // حماية ضد التكرار السريع (أقل من 0.6 ثانية)
             const currentConfig = await collection.findOne({ type: 'shipping_rates_config' });
             if (currentConfig && currentConfig.updatedAt) {
                 const timeDiff = Date.now() - new Date(currentConfig.updatedAt).getTime();
-                if (timeDiff < 600) { 
+                if (timeDiff < 600) {
                     return res.status(200).json({ success: true, message: "تم تجاهل الطلب المكرر السريع" });
                 }
             }
 
-            // تنفيذ التحديث في قاعدة البيانات
             await collection.updateOne(
                 { type: 'shipping_rates_config' },
                 { 
@@ -75,10 +54,14 @@ export default async function handler(req, res) {
             return res.status(200).json({ success: true, message: "تم الحفظ سحابياً بنجاح" });
         }
 
-        return res.status(405).json({ error: 'Method not allowed' });
+        return res.status(405).json({ success: false, message: 'Method not allowed' });
 
-    } catch (err) {
-        console.error("API Error:", err);
-        return res.status(500).json({ error: err.message || "Internal Server Error" });
+    } catch (error) {
+        console.error("Rates API Error:", error);
+        return res.status(500).json({ success: false, message: 'خطأ في الاتصال بقاعدة البيانات', error: error.message });
+    } finally {
+        if (client) {
+            await client.close();
+        }
     }
 }
