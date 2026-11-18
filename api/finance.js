@@ -18,7 +18,7 @@ export default async function handler(req, res) {
         await client.connect();
         const db = client.db('safira');
 
-        // تحديد الـ Collection بناءً على نوع الطلب القادم من الواجهة (مثلاً: ?type=payouts أو revenues أو expenses)
+        // تحديد الـ Collection بناءً على نوع الطلب (expenses, revenues, payouts, merchants)
         const type = req.query.type || req.body.type || 'expenses';
         const collection = db.collection(type);
 
@@ -32,9 +32,10 @@ export default async function handler(req, res) {
             
             // تحديد بادئة الـ ID حسب نوع العملية المالية
             let prefix = 'FIN';
-            if (type === 'payouts') prefix = 'PAY';
-            else if (type === 'revenues') prefix = 'REV';
-            else if (type === 'expenses') prefix = 'EXP';
+            if (type === 'payouts') prefix = 'PAY';          // مستحقات المناديب
+            else if (type === 'revenues') prefix = 'REV';     // الإيرادات
+            else if (type === 'expenses') prefix = 'EXP';     // المصروفات
+            else if (type === 'merchants') prefix = 'MER';    // مستحقات التجار
 
             const newItem = {
                 ...body,
